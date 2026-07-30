@@ -44,7 +44,7 @@ export async function GET(
 
     // Get file size
     const stat = await client.stat(filePath);
-    const fileSize = (stat as Record<string, unknown>).size as number;
+    const fileSize = (stat as unknown as Record<string, unknown>).size as number;
     const mimeType = getMimeType(filePath);
 
     // Parse Range header (support resume/partial downloads)

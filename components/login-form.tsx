@@ -15,7 +15,11 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-export function LoginForm() {
+interface LoginFormProps {
+  onSuccess?: (username: string) => void;
+}
+
+export function LoginForm({ onSuccess }: LoginFormProps = {}) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +44,7 @@ export function LoginForm() {
 
     const parsed = loginSchema.safeParse(credentials);
     if (!parsed.success) {
-      setError(parsed.error.errors[0].message);
+      setError(parsed.error.issues[0].message);
       setIsLoading(false);
       return;
     }
@@ -60,8 +64,12 @@ export function LoginForm() {
       }
 
       toast.success("Logged in successfully");
-      router.push("/");
-      router.refresh();
+      if (onSuccess) {
+        onSuccess(credentials.username);
+      } else {
+        router.push("/");
+        router.refresh();
+      }
     } catch {
       setError("Network error. Please try again.");
     } finally {

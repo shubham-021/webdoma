@@ -11,11 +11,12 @@ export interface DirectoryData {
 }
 
 interface FileStoreState {
-  // Directory cache: maps path to its contents
+  // Directory cache: maps `${username}:${path}` to its contents
   directoryCache: Record<string, DirectoryData>;
   currentPath: string;
   isLoading: boolean;
   error: string | null;
+  activeUsername: string | null;
   
   // UI State
   viewMode: "grid" | "list";
@@ -24,11 +25,15 @@ interface FileStoreState {
   sortOrder: SortOrder;
 
   // Actions
+  setActiveUsername: (username: string) => void;
   setCurrentPath: (path: string) => void;
   setViewMode: (mode: "grid" | "list") => void;
   setSearchQuery: (query: string) => void;
+  setSortKey: (key: SortKey) => void;
+  setSortOrder: (order: SortOrder) => void;
   toggleSort: () => void;
   fetchFiles: (path: string, forceRefresh?: boolean) => Promise<void>;
+  clearCache: () => void;
 }
 
 export const useFileStore = create<FileStoreState>((set, get) => ({
@@ -36,15 +41,19 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   currentPath: "/",
   isLoading: false,
   error: null,
+  activeUsername: null,
   
   viewMode: "grid",
   searchQuery: "",
   sortKey: "name",
   sortOrder: "asc",
 
+  setActiveUsername: (username) => set({ activeUsername: username, currentPath: "/" }),
   setCurrentPath: (path) => set({ currentPath: path, searchQuery: "" }),
   setViewMode: (mode) => set({ viewMode: mode }),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  setSortKey: (key) => set({ sortKey: key }),
+  setSortOrder: (order) => set({ sortOrder: order }),
   toggleSort: () => {
     const { sortKey, sortOrder } = get();
     const keys: SortKey[] = ["name", "size", "date"];
@@ -58,10 +67,11 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   },
 
   fetchFiles: async (path: string, forceRefresh = false) => {
-    const { directoryCache } = get();
+    const { directoryCache, activeUsername } = get();
+    const cacheKey = activeUsername ? `${activeUsername}:${path}` : path;
 
     // If we have cached data and aren't forcing a refresh, just set current path and return
-    if (!forceRefresh && directoryCache[path]) {
+    if (!forceRefresh && directoryCache[cacheKey]) {
       set({ currentPath: path, error: null, isLoading: false });
       return;
     }
@@ -70,7 +80,9 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
     set({ isLoading: true, error: null, currentPath: path });
 
     try {
-      const res = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
+      const res = await fetch(
+        `/api/files?path=${encodeURIComponent(path)}${forceRefresh ? "&refresh=true" : ""}`
+      );
 
       if (res.status === 401) {
         window.location.href = "/login";
@@ -89,13 +101,17 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
         lastRefreshed: new Date(),
       };
 
-      set((state) => ({
-        directoryCache: {
-          ...state.directoryCache,
-          [path]: newDirData,
-        },
-        isLoading: false,
-      }));
+      set((state) => {
+        const activeUser = state.activeUsername;
+        const currentCacheKey = activeUser ? `${activeUser}:${path}` : path;
+        return {
+          directoryCache: {
+            ...state.directoryCache,
+            [currentCacheKey]: newDirData,
+          },
+          isLoading: false,
+        };
+      });
     } catch (err) {
       set({ 
         error: err instanceof Error ? err.message : "Failed to load files",
@@ -103,4 +119,6 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
       });
     }
   },
+
+  clearCache: () => set({ directoryCache: {}, currentPath: "/" }),
 }));

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: parsed.error.errors[0].message },
+        { success: false, error: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
@@ -44,9 +44,35 @@ export async function POST(request: Request) {
 
     // Save credentials to session
     const session = await getSession();
+    
+    // Ensure all previously logged-in accounts are preserved in session.accounts
+    if (!session.accounts) {
+      session.accounts = [];
+    }
+    
+    // If there was a previously active session, make sure it is in session.accounts
+    if (session.username && session.password) {
+      const prevExisting = session.accounts.find(a => a.username === session.username);
+      if (!prevExisting) {
+        session.accounts.push({ username: session.username, password: session.password });
+      } else {
+        prevExisting.password = session.password;
+      }
+    }
+    
+    // Now set the new active session credentials
     session.username = username;
     session.password = password;
     session.playerProtocol = session.playerProtocol || "vlc";
+    
+    // Make sure the new account is in session.accounts
+    const existing = session.accounts.find(a => a.username === username);
+    if (existing) {
+      existing.password = password;
+    } else {
+      session.accounts.push({ username, password });
+    }
+
     await session.save();
 
     return NextResponse.json({ success: true });

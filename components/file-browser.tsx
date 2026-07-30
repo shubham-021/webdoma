@@ -9,6 +9,16 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { FileCard } from "@/components/file-card";
 import { toast } from "sonner";
 import { useFileStore } from "@/lib/store";
+import type { SortKey, SortOrder } from "@/lib/store";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FileBrowserProps {
   playerProtocol: string;
@@ -24,21 +34,25 @@ export function FileBrowser({ playerProtocol }: FileBrowserProps) {
     sortKey,
     sortOrder,
     directoryCache,
+    activeUsername,
     fetchFiles,
     setCurrentPath,
     setViewMode,
     setSearchQuery,
+    setSortKey,
+    setSortOrder,
     toggleSort,
   } = useFileStore();
 
-  const currentDirData = directoryCache[currentPath];
+  const cacheKey = activeUsername ? `${activeUsername}:${currentPath}` : currentPath;
+  const currentDirData = directoryCache[cacheKey];
   const items = currentDirData?.items || [];
   const breadcrumbs = currentDirData?.breadcrumbs || [];
   const lastRefreshed = currentDirData?.lastRefreshed;
 
   useEffect(() => {
     fetchFiles(currentPath);
-  }, [currentPath, fetchFiles]);
+  }, [currentPath, activeUsername, fetchFiles]);
 
   const handleNavigate = useCallback(
     (path: string) => {
@@ -101,16 +115,41 @@ export function FileBrowser({ playerProtocol }: FileBrowserProps) {
             />
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSort}
-            className="h-9 w-9 shrink-0"
-            title={`Sort by ${sortKey} (${sortOrder})`}
-            id="sort-toggle"
-          >
-            <ArrowUpDown size={16} />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-9 gap-1.5 px-3 shrink-0 cursor-pointer text-xs font-medium border border-border/50 bg-muted/20 hover:bg-muted/30"
+                title={`Sort by ${sortKey} (${sortOrder === "asc" ? "Ascending" : "Descending"})`}
+                id="sort-toggle"
+              >
+                <ArrowUpDown size={15} />
+                <span className="hidden md:inline capitalize">Sort: {sortKey} ({sortOrder === "asc" ? "Asc" : "Desc"})</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[180px] outline-none">
+              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup
+                value={sortKey}
+                onValueChange={(v) => setSortKey(v as SortKey)}
+              >
+                <DropdownMenuRadioItem value="name" className="cursor-pointer">Name</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="size" className="cursor-pointer">Size</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="date" className="cursor-pointer">Date Modified</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Order</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup
+                value={sortOrder}
+                onValueChange={(v) => setSortOrder(v as SortOrder)}
+              >
+                <DropdownMenuRadioItem value="asc" className="cursor-pointer">Ascending</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="desc" className="cursor-pointer">Descending</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <div className="flex items-center rounded-lg border border-border/50 p-0.5">
             <Button

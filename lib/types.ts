@@ -1,8 +1,14 @@
+export interface Account {
+  username: string;
+  password?: string;
+}
+
 // Session data stored in encrypted iron-session cookie
 export interface SessionData {
-  username: string;
-  password: string;
+  username?: string;
+  password?: string;
   playerProtocol: string; // default: "vlc"
+  accounts?: Account[];
 }
 
 // File item returned by GET /api/files
