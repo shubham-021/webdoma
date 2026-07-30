@@ -68,13 +68,12 @@ bun run build
 bun run start
 ```
 
-### Containerized Deployment
+### Directly running via docker
 
-A pre-configured Docker build is supported for simple deployment:
 
 ```bash
-docker build -t doma-web .
-docker run -p 3000:3000 -e SESSION_SECRET="your-secret-here" doma-web
+docker pull sh7bham/webdoma:latest
+docker run -p 3000:3000 -e SESSION_SECRET="your-secret-here" sh7bham/webdoma
 ```
 
 ---
@@ -83,11 +82,11 @@ docker run -p 3000:3000 -e SESSION_SECRET="your-secret-here" doma-web
 
 The application is configured using environment variables. These can be set in a `.env.local` file or passed directly to the container runtime.
 
-| Variable | Required | Default | Description |
-| :--- | :---: | :--- | :--- |
-| `SESSION_SECRET` | Yes | - | Secret key used to encrypt session cookies (minimum 32 characters) |
-| `WEBDAV_BASE_URL` | No | `https://webdav.torbox.app` | Base URL of the TorBox WebDAV server |
-| `PORT` | No | `3000` | Port number the application server binds to |
+| Variable          | Required | Default                     | Description                                                        |
+| :---------------- | :------: | :-------------------------- | :----------------------------------------------------------------- |
+| `SESSION_SECRET`  |   Yes    | -                           | Secret key used to encrypt session cookies (minimum 32 characters) |
+| `WEBDAV_BASE_URL` |    No    | `https://webdav.torbox.app` | Base URL of the TorBox WebDAV server                               |
+| `PORT`            |    No    | `3000`                      | Port number the application server binds to                        |
 
 ---
 
@@ -95,14 +94,14 @@ The application is configured using environment variables. These can be set in a
 
 DoMa Web can launch desktop media players directly from the browser using custom protocol schemas or server-side execution.
 
-| Player | macOS | Windows | Linux | Method |
-| :--- | :---: | :---: | :---: | :--- |
-| **mpv** | Yes | Yes | Yes | Server-side execution |
-| **VLC** | Yes | Yes | Yes | Server-side execution |
-| **IINA** | Yes | - | - | Server-side execution |
-| **PotPlayer** | - | Yes | - | Protocol handler (`potplayer://`) |
-| **Infuse** | Yes | - | - | Protocol handler (`infuse://`) |
-| **Custom** | Yes | Yes | Yes | Configurable URL templates |
+| Player        | macOS | Windows | Linux | Method                            |
+| :------------ | :---: | :-----: | :---: | :-------------------------------- |
+| **mpv**       |  Yes  |   Yes   |  Yes  | Server-side execution             |
+| **VLC**       |  Yes  |   Yes   |  Yes  | Server-side execution             |
+| **IINA**      |  Yes  |    -    |   -   | Server-side execution             |
+| **PotPlayer** |   -   |   Yes   |   -   | Protocol handler (`potplayer://`) |
+| **Infuse**    |  Yes  |    -    |   -   | Protocol handler (`infuse://`)    |
+| **Custom**    |  Yes  |   Yes   |  Yes  | Configurable URL templates        |
 
 ---
 
