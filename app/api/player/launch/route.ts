@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/session";
-import { createToken } from "@/lib/tokens";
+import { WEBDAV_BASE_URL } from "@/lib/constants";
 import { spawn } from "child_process";
 
 const launchSchema = z.object({
@@ -64,10 +64,16 @@ export async function POST(request: Request) {
       // Test mode: launch player in idle mode without streaming
       args = playerConfig.testArgs;
     } else {
-      // Normal mode: create a token and stream
-      const { token } = createToken(filePath, session.username, session.password);
-      const streamURL = `${getBaseURL(request)}/api/stream${filePath}?token=${token}`;
-      args = playerConfig.args(streamURL);
+      // Build direct WebDAV URL with embedded credentials
+      // e.g. https://user:pass@webdav.torbox.app/path/to/file.mkv
+      // This lets mpv/VLC fetch directly from TorBox — no proxy hop needed
+      const webdavURL = new URL(WEBDAV_BASE_URL);
+      webdavURL.username = encodeURIComponent(session.username);
+      webdavURL.password = encodeURIComponent(session.password);
+      webdavURL.pathname = filePath;
+
+      const directURL = webdavURL.toString();
+      args = playerConfig.args(directURL);
     }
 
     // Spawn the player as a detached process
@@ -88,9 +94,4 @@ export async function POST(request: Request) {
     console.error("Player launch error:", error);
     return NextResponse.json({ error: "Failed to launch player" }, { status: 500 });
   }
-}
-
-function getBaseURL(request: Request): string {
-  const url = new URL(request.url);
-  return `${url.protocol}//${url.host}`;
 }
