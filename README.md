@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DoMa Web
 
-## Getting Started
+> Self-hosted web application to browse, stream, and download files from your [TorBox](https://torbox.app) cloud storage via WebDAV.
 
-First, run the development server:
+## Features
+
+- 🔐 **Secure login** — credentials encrypted in a cookie, never leave your server
+- 📁 **File browser** — grid/list views, search, sort, breadcrumb navigation
+- ▶️ **Stream to native player** — launch mpv, VLC, IINA directly from the browser
+- ⬇️ **Download** — trigger browser downloads with resumable Range support
+- 🔗 **Copy link** — share tokenized stream URLs (valid for 1 hour)
+- 🌙 **Dark/light mode** — dark by default, toggle anytime
+- 🐳 **Docker ready** — standalone build for easy deployment
+
+## Quick Start
+
+### Prerequisites
+
+- [Bun](https://bun.sh) runtime (or Node.js 18+)
+- A [TorBox](https://torbox.app) account with WebDAV access
+
+### Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone the repo
+git clone <repo-url> doma-web && cd doma-web
+
+# Install dependencies
+bun install
+
+# Create environment file
+cp .env.example .env.local
+# Edit .env.local — set SESSION_SECRET (min 32 chars)
+# Generate one with: openssl rand -base64 32
+
+# Start dev server
+bun run dev
+# → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Production
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+bun run build
+bun run start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Docker
 
-## Learn More
+```bash
+docker build -t doma-web .
+docker run -p 3000:3000 -e SESSION_SECRET="your-secret-here" doma-web
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `SESSION_SECRET` | ✅ | — | 32+ char secret for encrypting session cookies |
+| `WEBDAV_BASE_URL` | No | `https://webdav.torbox.app` | TorBox WebDAV server URL |
+| `PORT` | No | `3000` | Server port |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Player Support
 
-## Deploy on Vercel
+| Player | macOS | Windows | Linux | Method |
+|---|---|---|---|---|
+| **mpv** | ✅ | ✅ | ✅ | Server-side launch (self-hosted) |
+| **VLC** | ✅ | ✅ | ✅ | Server-side launch |
+| **IINA** | ✅ | — | — | Server-side launch |
+| **PotPlayer** | — | ✅ | — | Protocol handler |
+| **Infuse** | ✅ | — | — | Protocol handler |
+| **Custom** | ✅ | ✅ | ✅ | Custom URL template |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Tech Stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui · iron-session · webdav · Bun
+
+## License
+
+MIT
