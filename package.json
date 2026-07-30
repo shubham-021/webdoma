@@ -29,7 +29,8 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "webdav": "^5.10.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

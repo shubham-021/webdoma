@@ -41,13 +41,18 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
     return (
       <div
         onClick={handleClick}
-        className={`group flex items-center gap-4 px-4 py-3 rounded-lg border border-transparent transition-all duration-200 ${
-          isDirectory
+        className={`group flex items-center gap-4 px-4 py-3 rounded-lg border border-transparent transition-all duration-200 ${isDirectory
             ? "cursor-pointer hover:bg-primary/5 hover:border-primary/20"
             : "hover:bg-muted/50"
-        }`}
+          }`}
       >
-        <FileIcon filename={item.name} isDirectory={isDirectory} size={20} />
+        {fileType === "image" ? (
+          <div className="w-8 h-8 rounded shrink-0 overflow-hidden bg-muted/50 border border-border/50 relative shadow-sm">
+            <img src={`/api/stream${item.path}`} alt={item.name} className="object-cover w-full h-full" loading="lazy" />
+          </div>
+        ) : (
+          <FileIcon filename={item.name} isDirectory={isDirectory} size={20} />
+        )}
 
         <div className="flex-1 min-w-0">
           <Tooltip>
@@ -94,24 +99,36 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
   return (
     <div
       onClick={handleClick}
-      className={`group relative flex flex-col items-center gap-3 p-4 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm transition-all duration-200 ${
-        isDirectory
+      className={`group relative flex flex-col items-center gap-3 p-4 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm transition-all duration-200 overflow-hidden ${isDirectory
           ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5"
           : "hover:bg-muted/30 hover:border-border hover:shadow-md hover:-translate-y-0.5"
-      }`}
+        }`}
     >
-      <div className="w-full flex items-center justify-between">
+      {fileType === "image" && (
+        <div className="absolute inset-0 z-0 opacity-15 group-hover:opacity-30 transition-opacity duration-300 pointer-events-none">
+          <img src={`/api/stream${item.path}`} alt="" className="object-cover w-full h-full" loading="lazy" />
+          <div className="absolute inset-0 bg-linear-to-t from-card via-card/80 to-transparent" />
+        </div>
+      )}
+
+      <div className="w-full flex items-center justify-between z-10 relative">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <FileIcon filename={item.name} isDirectory={isDirectory} size={24} />
+          {fileType === "image" ? (
+            <div className="w-10 h-10 rounded-lg shrink-0 overflow-hidden bg-muted/50 border border-border/50 shadow-sm">
+              <img src={`/api/stream${item.path}`} alt={item.name} className="object-cover w-full h-full" loading="lazy" />
+            </div>
+          ) : (
+            <FileIcon filename={item.name} isDirectory={isDirectory} size={24} />
+          )}
           {!isDirectory && (
-            <Badge variant={getFileTypeBadgeVariant(fileType)} className="text-[10px] shrink-0">
+            <Badge variant={getFileTypeBadgeVariant(fileType)} className="text-[10px] shrink-0 bg-background/50 backdrop-blur-md">
               {item.extension.toUpperCase()}
             </Badge>
           )}
         </div>
       </div>
 
-      <div className="w-full min-w-0">
+      <div className="w-full min-w-0 z-10 relative">
         <Tooltip>
           <TooltipTrigger asChild>
             <p className={`text-sm font-medium truncate ${isDirectory ? "text-primary" : ""}`}>
@@ -133,7 +150,7 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
       </div>
 
       {!isDirectory && (
-        <div className="w-full pt-1 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="w-full pt-1 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 relative">
           <FileActions
             filePath={item.path}
             fileName={item.name}

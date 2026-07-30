@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { RefreshCw, LayoutGrid, List, Search, ArrowUpDown, FolderOpen, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,84 +8,49 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { FileCard } from "@/components/file-card";
 import { toast } from "sonner";
-import type { FileItem, BreadcrumbItem } from "@/lib/types";
+import { useFileStore } from "@/lib/store";
 
 interface FileBrowserProps {
   playerProtocol: string;
 }
 
-type SortKey = "name" | "size" | "date";
-type SortOrder = "asc" | "desc";
-
 export function FileBrowser({ playerProtocol }: FileBrowserProps) {
-  const [items, setItems] = useState<FileItem[]>([]);
-  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
-  const [currentPath, setCurrentPath] = useState("/");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const {
+    currentPath,
+    isLoading,
+    error,
+    viewMode,
+    searchQuery,
+    sortKey,
+    sortOrder,
+    directoryCache,
+    fetchFiles,
+    setCurrentPath,
+    setViewMode,
+    setSearchQuery,
+    toggleSort,
+  } = useFileStore();
 
-  const fetchFiles = useCallback(async (path: string) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
-
-      if (res.status === 401) {
-        window.location.href = "/login";
-        return;
-      }
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch files");
-      }
-
-      const data = await res.json();
-      setItems(data.items);
-      setBreadcrumbs(data.breadcrumbs);
-      setCurrentPath(data.currentPath);
-      setLastRefreshed(new Date());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load files");
-      toast.error("Failed to load directory");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const currentDirData = directoryCache[currentPath];
+  const items = currentDirData?.items || [];
+  const breadcrumbs = currentDirData?.breadcrumbs || [];
+  const lastRefreshed = currentDirData?.lastRefreshed;
 
   useEffect(() => {
     fetchFiles(currentPath);
-  }, []);
+  }, [currentPath, fetchFiles]);
 
   const handleNavigate = useCallback(
     (path: string) => {
-      setSearchQuery("");
       setCurrentPath(path);
-      fetchFiles(path);
     },
-    [fetchFiles]
+    [setCurrentPath]
   );
 
-  const handleRefresh = useCallback(() => {
-    fetchFiles(currentPath);
+  const handleRefresh = useCallback(async () => {
+    await fetchFiles(currentPath, true);
     toast.success("Refreshed");
   }, [fetchFiles, currentPath]);
-
-  const toggleSort = useCallback(() => {
-    const keys: SortKey[] = ["name", "size", "date"];
-    const currentIndex = keys.indexOf(sortKey);
-    if (sortOrder === "desc") {
-      setSortKey(keys[(currentIndex + 1) % keys.length]);
-      setSortOrder("asc");
-    } else {
-      setSortOrder("desc");
-    }
-  }, [sortKey, sortOrder]);
 
   // Filter and sort
   const filteredItems = items
