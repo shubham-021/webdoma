@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { FileItem } from "@/lib/types";
 import { getFileType } from "@/lib/utils";
 import { FileIcon } from "@/components/file-icon";
@@ -30,6 +31,30 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
   const isDirectory = item.type === "directory";
   const fileType = getFileType(item.name);
   const isMedia = item.isVideo || item.isAudio;
+  
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [displayTitle, setDisplayTitle] = useState(item.name);
+  const [displayYear, setDisplayYear] = useState(new Date(item.lastModified).getFullYear().toString());
+  
+  useEffect(() => {
+    if (item.isVideo && !isDirectory) {
+      const fetchMetadata = async () => {
+        try {
+          const res = await fetch(`/api/metadata?filename=${encodeURIComponent(item.name)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.posterUrl) setPosterUrl(data.posterUrl);
+            if (data.title) setDisplayTitle(data.title);
+            if (data.year) setDisplayYear(data.year);
+          }
+        } catch (e) {
+          console.error("Failed to fetch metadata for", item.name, e);
+        }
+      };
+      
+      fetchMetadata();
+    }
+  }, [item.name, item.isVideo, isDirectory]);
 
   const handleClick = () => {
     if (isDirectory) {
@@ -38,6 +63,7 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
   };
 
   if (viewMode === "list") {
+    // Keep list mode simple but still useful
     return (
       <div
         onClick={handleClick}
@@ -46,19 +72,23 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
             : "hover:bg-muted/50"
           }`}
       >
-        {fileType === "image" ? (
-          <div className="w-8 h-8 rounded shrink-0 overflow-hidden bg-muted/50 border border-border/50 relative shadow-sm">
+        {posterUrl ? (
+          <div className="w-10 h-14 rounded shrink-0 overflow-hidden bg-muted/50 border border-border/50 relative shadow-sm">
+            <img src={posterUrl} alt={displayTitle} className="object-cover w-full h-full" loading="lazy" />
+          </div>
+        ) : fileType === "image" ? (
+          <div className="w-10 h-10 rounded shrink-0 overflow-hidden bg-muted/50 border border-border/50 relative shadow-sm">
             <img src={`/api/stream${item.path}`} alt={item.name} className="object-cover w-full h-full" loading="lazy" />
           </div>
         ) : (
-          <FileIcon filename={item.name} isDirectory={isDirectory} size={20} />
+          <FileIcon filename={item.name} isDirectory={isDirectory} size={24} />
         )}
 
         <div className="flex-1 min-w-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <p className={`text-sm font-medium truncate ${isDirectory ? "text-primary" : ""}`}>
-                {item.name}
+                {displayTitle} {displayYear && !isDirectory ? `(${displayYear})` : ''}
               </p>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs">
@@ -77,12 +107,8 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
           {item.sizeFormatted}
         </span>
 
-        <span className="text-xs text-muted-foreground w-28 text-right hidden md:block">
-          {new Date(item.lastModified).toLocaleDateString()}
-        </span>
-
         {!isDirectory && (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-2">
             <FileActions
               filePath={item.path}
               fileName={item.name}
@@ -95,44 +121,57 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
     );
   }
 
-  // Grid view
+  // Grid view - Jellyfin like poster
   return (
     <div
       onClick={handleClick}
-      className={`group relative flex flex-col items-center gap-3 p-4 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm transition-all duration-200 overflow-hidden ${isDirectory
-          ? "cursor-pointer hover:bg-primary/5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5"
-          : "hover:bg-muted/30 hover:border-border hover:shadow-md hover:-translate-y-0.5"
+      className={`group relative flex flex-col rounded-xl border border-border/50 bg-card transition-all duration-300 overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 ${isDirectory
+          ? "cursor-pointer"
+          : ""
         }`}
     >
-      {fileType === "image" && (
-        <div className="absolute inset-0 z-0 opacity-15 group-hover:opacity-30 transition-opacity duration-300 pointer-events-none">
-          <img src={`/api/stream${item.path}`} alt="" className="object-cover w-full h-full" loading="lazy" />
-          <div className="absolute inset-0 bg-linear-to-t from-card via-card/80 to-transparent" />
-        </div>
-      )}
-
-      <div className="w-full flex items-center justify-between z-10 relative">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          {fileType === "image" ? (
-            <div className="w-10 h-10 rounded-lg shrink-0 overflow-hidden bg-muted/50 border border-border/50 shadow-sm">
-              <img src={`/api/stream${item.path}`} alt={item.name} className="object-cover w-full h-full" loading="lazy" />
-            </div>
-          ) : (
-            <FileIcon filename={item.name} isDirectory={isDirectory} size={24} />
-          )}
-          {!isDirectory && (
-            <Badge variant={getFileTypeBadgeVariant(fileType)} className="text-[10px] shrink-0 bg-background/50 backdrop-blur-md">
+      {/* Poster / Image Section */}
+      <div className="relative aspect-[2/3] w-full bg-muted/30 overflow-hidden">
+        {posterUrl ? (
+          <img src={posterUrl} alt={displayTitle} className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+        ) : fileType === "image" ? (
+          <img src={`/api/stream${item.path}`} alt={item.name} className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-muted/20">
+            <FileIcon filename={item.name} isDirectory={isDirectory} size={48} />
+          </div>
+        )}
+        
+        {/* Overlay gradient for text readability */}
+        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-300 pointer-events-none" />
+        
+        {!isDirectory && (
+          <div className="absolute top-2 right-2 z-10">
+            <Badge variant="secondary" className="text-[10px] bg-black/60 text-white backdrop-blur-md border-0">
               {item.extension.toUpperCase()}
             </Badge>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Hover Actions */}
+        {!isDirectory && (
+          <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-20 bg-background/90 backdrop-blur-md border-t border-border/50 flex justify-center">
+            <FileActions
+              filePath={item.path}
+              fileName={item.name}
+              isMedia={isMedia}
+              playerProtocol={playerProtocol}
+            />
+          </div>
+        )}
       </div>
 
-      <div className="w-full min-w-0 z-10 relative">
+      {/* Title & Info Section */}
+      <div className="p-3 w-full min-w-0 z-10 bg-card">
         <Tooltip>
           <TooltipTrigger asChild>
-            <p className={`text-sm font-medium truncate ${isDirectory ? "text-primary" : ""}`}>
-              {item.name}
+            <p className="text-sm font-semibold truncate leading-tight mb-1">
+              {displayTitle}
             </p>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="max-w-xs">
@@ -141,24 +180,13 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
         </Tooltip>
 
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-muted-foreground">{item.sizeFormatted}</span>
+          <span className="text-xs text-muted-foreground font-medium">{item.sizeFormatted}</span>
           <span className="text-xs text-muted-foreground/50">•</span>
-          <span className="text-xs text-muted-foreground">
-            {new Date(item.lastModified).toLocaleDateString()}
+          <span className="text-xs text-muted-foreground truncate">
+            {displayYear}
           </span>
         </div>
       </div>
-
-      {!isDirectory && (
-        <div className="w-full pt-1 border-t border-border/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 relative">
-          <FileActions
-            filePath={item.path}
-            fileName={item.name}
-            isMedia={isMedia}
-            playerProtocol={playerProtocol}
-          />
-        </div>
-      )}
     </div>
   );
 }

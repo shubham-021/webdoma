@@ -21,8 +21,8 @@ function getPlayerCommand(player: string) {
   }> = {
     mpv: {
       cmd: "mpv",
-      args: (url) => ["--force-window", "--no-terminal", url],
-      testArgs: ["--idle", "--force-window", "--no-terminal", "--title=DoMa Test - Close this window"],
+      args: (url) => [url],
+      testArgs: [],
     },
     vlc: {
       cmd: isDarwin ? "/Applications/VLC.app/Contents/MacOS/VLC" : "vlc",
