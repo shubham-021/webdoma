@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { createWebDAVClient } from "@/lib/webdav";
 import { getMimeType } from "@/lib/utils";
+import { decrypt } from "@/lib/crypto";
+import { getAccountById } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,35 @@ function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStream {
   });
 }
 
+async function getCredentials(
+  request: NextRequest,
+  filePath: string
+): Promise<{ username: string; password: string } | null> {
+  // Try account_id from query param (for direct DB lookup)
+  const accountIdParam = request.nextUrl.searchParams.get("account_id");
+  if (accountIdParam) {
+    const accountId = parseInt(accountIdParam, 10);
+    const session = await getSession();
+    if (!session.userId) return null;
+
+    const account = getAccountById(accountId);
+    if (!account || account.user_id !== session.userId) return null;
+
+    try {
+      const password = decrypt(account.webdav_password);
+      return { username: account.webdav_username, password };
+    } catch {
+      return null;
+    }
+  }
+
+  // Fallback: session (for backwards compat)
+  const session = await getSession();
+  if (!session.userId) return null;
+
+  return null;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -31,16 +62,18 @@ export async function GET(
   const filePath = "/" + path.map(decodeURIComponent).join("/");
   const filename = path[path.length - 1];
 
-  const session = await getSession();
-  if (!session.username || !session.password) {
+  const credentials = await getCredentials(request, filePath);
+  if (!credentials) {
     return NextResponse.json(
       { error: "Not authenticated" },
       { status: 401 }
     );
   }
 
+  const { username, password } = credentials;
+
   try {
-    const client = createWebDAVClient(session.username, session.password);
+    const client = createWebDAVClient(username, password);
 
     // Get file size
     const stat = await client.stat(filePath);

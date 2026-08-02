@@ -1,28 +1,49 @@
 export interface Account {
-  username: string;
-  password?: string;
+  id: number;
+  user_id: number;
+  webdav_username: string;
+  webdav_password: string; // encrypted
+  display_name: string | null;
+  rclone_config_name: string;
+  is_active: number;
+  last_synced_at: string | null;
+  created_at: string;
 }
 
 // Session data stored in encrypted iron-session cookie
 export interface SessionData {
-  username?: string;
-  password?: string;
-  playerProtocol: string; // default: "vlc"
-  accounts?: Account[];
+  userId?: number;           // Application user ID (replaces username/password)
+  playerProtocol: string;    // default: "vlc"
 }
 
-// File item returned by GET /api/files
+// TorBox account response for client-side display
+export interface TorBoxAccount {
+  id: number;
+  webdav_username: string;
+  display_name: string | null;
+  is_active: boolean;
+  last_synced_at: string | null;
+}
+
+// File item returned by GET /api/files (from DB join)
 export interface FileItem {
-  name: string;
-  path: string;
+  id: number;
+  account_id: number;
+  remote_path: string;
+  filename: string;
   size: number;
   sizeFormatted: string;
-  type: "file" | "directory";
-  mimeType: string;
-  lastModified: string;
-  isVideo: boolean;
-  isAudio: boolean;
-  extension: string;
+  mime_type: string;
+  last_modified: string;
+  tmdb_id: number | null;
+  raw_title: string | null;
+  raw_year: string | null;
+  synced_at: string;
+  // Joined media fields
+  media_title: string | null;
+  media_year: string | null;
+  media_poster_url: string | null;
+  media_type: "movie" | "tv" | null;
 }
 
 // Breadcrumb segment
@@ -59,6 +80,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface RegisterRequest {
+  username: string;
+  password: string;
+}
+
 export interface CreateTokenRequest {
   filePath: string;
 }
@@ -70,4 +96,27 @@ export interface CreateTokenResponse {
 
 export interface ApiError {
   error: string;
+}
+
+// Account management
+export interface AddAccountRequest {
+  webdav_username: string;
+  webdav_password: string;
+  display_name?: string;
+}
+
+export interface AddAccountResponse {
+  success: boolean;
+  account?: TorBoxAccount;
+  error?: string;
+}
+
+export interface SyncRequest {
+  account_id: number;
+}
+
+export interface SyncResponse {
+  success: boolean;
+  files_synced?: number;
+  error?: string;
 }

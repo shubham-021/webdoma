@@ -4,7 +4,7 @@ import type { PlayerConfig } from "./types";
 
 export const VIDEO_EXTENSIONS = new Set([
   "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v",
-  "mpg", "mpeg", "ts", "m2ts", "vob", "3gp", "ogv",
+  "mpg", "mpeg", "ts", , "vob", "3gp", "ogv",
 ]);
 
 export const AUDIO_EXTENSIONS = new Set([

@@ -3,6 +3,8 @@ import { getSession } from "@/lib/session";
 import { createWebDAVClient } from "@/lib/webdav";
 import { validateToken } from "@/lib/tokens";
 import { getMimeType } from "@/lib/utils";
+import { decrypt } from "@/lib/crypto";
+import { getAccountById } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,45 @@ function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStream {
   });
 }
 
+async function getCredentials(
+  request: NextRequest,
+  filePath: string
+): Promise<{ username: string; password: string } | null> {
+  // Auth: try session cookie first, then token query param
+  const tokenParam = request.nextUrl.searchParams.get("token");
+  if (tokenParam) {
+    const tokenData = validateToken(tokenParam, filePath);
+    if (!tokenData) return null;
+    return { username: tokenData.username, password: tokenData.password };
+  }
+
+  // Try account_id from query param (for direct DB lookup)
+  const accountIdParam = request.nextUrl.searchParams.get("account_id");
+  if (accountIdParam) {
+    const accountId = parseInt(accountIdParam, 10);
+    const session = await getSession();
+    if (!session.userId) return null;
+
+    const account = getAccountById(accountId);
+    if (!account || account.user_id !== session.userId) return null;
+
+    try {
+      const password = decrypt(account.webdav_password);
+      return { username: account.webdav_username, password };
+    } catch {
+      return null;
+    }
+  }
+
+  // Fallback: session (for backwards compat)
+  const session = await getSession();
+  if (!session.userId) return null;
+
+  // If user has accounts, use the first active one
+  // This is a fallback and shouldn't normally be reached
+  return null;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -31,32 +72,15 @@ export async function GET(
   const { path } = await params;
   const filePath = "/" + path.map(decodeURIComponent).join("/");
 
-  // Auth: try session cookie first, then token query param
-  let username: string;
-  let password: string;
-
-  const tokenParam = request.nextUrl.searchParams.get("token");
-  if (tokenParam) {
-    const tokenData = validateToken(tokenParam, filePath);
-    if (!tokenData) {
-      return NextResponse.json(
-        { error: "Invalid or expired token" },
-        { status: 401 }
-      );
-    }
-    username = tokenData.username;
-    password = tokenData.password;
-  } else {
-    const session = await getSession();
-    if (!session.username || !session.password) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
-    }
-    username = session.username;
-    password = session.password;
+  const credentials = await getCredentials(request, filePath);
+  if (!credentials) {
+    return NextResponse.json(
+      { error: "Not authenticated" },
+      { status: 401 }
+    );
   }
+
+  const { username, password } = credentials;
 
   try {
     const client = createWebDAVClient(username, password);

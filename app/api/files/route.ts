@@ -1,108 +1,84 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { getRcloneConfigName, isRcloneInstalled } from "@/lib/rclone";
-import { serverCache } from "@/lib/server-cache";
-import { formatBytes, getMimeType, getExtension, buildBreadcrumbs } from "@/lib/utils";
+import { getFilesForAccount, getAccountsByUserId } from "@/lib/db";
+import { formatBytes } from "@/lib/utils";
 import type { FileItem, FilesResponse } from "@/lib/types";
-import { execFile } from "child_process";
-import { promisify } from "util";
 
-const execFileAsync = promisify(execFile);
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const session = await getSession();
-    if (!session.username || !session.password) {
+    if (!session.userId) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    const rcloneInstalled = await isRcloneInstalled();
-    if (!rcloneInstalled) {
-      return NextResponse.json(
-        { error: "rclone is not installed on the server" },
-        { status: 500 }
-      );
+    const { searchParams } = new URL(request.url);
+    const accountIdParam = searchParams.get("account_id");
+
+    // Get user's accounts
+    const accounts = getAccountsByUserId(session.userId);
+    if (accounts.length === 0) {
+      return NextResponse.json({ items: [], currentPath: "/", breadcrumbs: [{ name: "Home", path: "/" }] });
     }
 
-    const searchParams = request.nextUrl.searchParams;
-    const path = "/"; // Force root path since we're flattening
-    const refresh = searchParams.get("refresh") === "true";
-    const configName = getRcloneConfigName(session.username);
-    const cacheKey = `${session.username}:rclone_all_videos`;
-    
-    let items = (serverCache.get(cacheKey) as FileItem[]) || null;
-
-    if (refresh || !items) {
-      try {
-        // Use rclone lsjson to get all video files > 500MB recursively
-        const { stdout } = await execFileAsync("rclone", [
-          "lsjson",
-          `${configName}:/`,
-          "-R",
-          "--files-only",
-          "--min-size", "500M",
-          "--include", "*.{mp4,mkv,mov,avi,wmv,flv,webm,m4v,mpg,mpeg,ts,m2ts,vob,3gp,ogv}"
-        ]);
-
-        const rawItems = JSON.parse(stdout);
-        
-        items = rawItems.map((item: any) => {
-          const filename = item.Name;
-          const ext = getExtension(filename);
-          const size = item.Size || 0;
-          const sizeFormatted = formatBytes(size);
-          // Rclone Path is relative to the queried root. For webdav download/stream APIs,
-          // we need an absolute path with leading slash.
-          const itemPath = item.Path.startsWith("/") ? item.Path : `/${item.Path}`;
-
-          return {
-            name: filename,
-            path: itemPath,
-            size,
-            sizeFormatted,
-            type: "file",
-            mimeType: item.MimeType || getMimeType(filename),
-            lastModified: item.ModTime || new Date().toISOString(),
-            isVideo: true,
-            isAudio: false,
-            extension: ext,
-          } satisfies FileItem;
-        });
-
-        // Sort by name
-        if (items) {
-          items.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-          // Cache for 10 minutes
-          serverCache.set(cacheKey, items, 10 * 60 * 1000);
-        }
-      } catch (execError: any) {
-        console.error("rclone lsjson error:", execError);
-        
-        if (execError.stderr && execError.stderr.includes("429 Too Many Requests")) {
-            return NextResponse.json(
-                { error: "TorBox rate limit exceeded. Please wait a few minutes." },
-                { status: 429 }
-            );
-        }
-        throw execError;
-      }
+    // Determine active account
+    let activeAccount = accounts[0];
+    if (accountIdParam) {
+      const requested = accounts.find(a => a.id === parseInt(accountIdParam, 10));
+      if (requested) activeAccount = requested;
     }
+
+    // Fetch files from DB (fast SQL JOIN)
+    const dbFiles = getFilesForAccount(activeAccount.id);
+
+    // Transform to FileItem format
+    const items: FileItem[] = dbFiles.map((row) => {
+      const filename = row.filename;
+      const ext = filename.split(".").pop()?.toLowerCase() || "";
+      const size = row.size || 0;
+
+      return {
+        id: row.id,
+        account_id: row.account_id,
+        remote_path: row.remote_path,
+        filename,
+        size,
+        sizeFormatted: formatBytes(size),
+        mime_type: row.mime_type || "video/mp4",
+        last_modified: row.last_modified,
+        tmdb_id: row.tmdb_id,
+        raw_title: row.raw_title,
+        raw_year: row.raw_year,
+        synced_at: row.synced_at,
+        media_title: row.media_title,
+        media_year: row.media_year,
+        media_poster_url: row.media_poster_url,
+        media_type: row.media_type,
+      };
+    });
+
+    // Sort by display title (media title > raw title > filename)
+    items.sort((a, b) => {
+      const titleA = a.media_title || a.raw_title || a.filename;
+      const titleB = b.media_title || b.raw_title || b.filename;
+      return titleA.localeCompare(titleB, undefined, { sensitivity: "base" });
+    });
 
     const response: FilesResponse = {
-      items: items || [],
-      currentPath: path,
-      breadcrumbs: buildBreadcrumbs(path),
+      items,
+      currentPath: "/",
+      breadcrumbs: [{ name: "Home", path: "/" }],
     };
 
     return NextResponse.json(response);
   } catch (error) {
     console.error("Files listing error:", error);
     return NextResponse.json(
-      { error: "Failed to list files via rclone" },
+      { error: "Failed to list files" },
       { status: 500 }
     );
   }

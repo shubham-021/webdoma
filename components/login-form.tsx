@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, LogIn } from "lucide-react";
+import { Loader2, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,57 +15,70 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+const registerSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters").max(50),
+  password: z.string().min(8, "Password must be at least 8 characters").max(100),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
 interface LoginFormProps {
-  onSuccess?: (username: string) => void;
+  onSuccess?: () => void;
 }
 
 export function LoginForm({ onSuccess }: LoginFormProps = {}) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<"email" | "apikey">("email");
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
 
-  // Email + Password fields
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // Login fields
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
 
-  // API Key field
-  const [apiKey, setApiKey] = useState("");
+  // Register fields
+  const [regUsername, setRegUsername] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    const credentials =
-      authMode === "email"
-        ? { username: email, password }
-        : { username: "torbox", password: apiKey };
-
-    const parsed = loginSchema.safeParse(credentials);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const res = await fetch("/api/auth/login", {
+      const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const body =
+        authMode === "login"
+          ? { username: loginUsername, password: loginPassword }
+          : { username: regUsername, password: regPassword, confirmPassword: regConfirmPassword };
+
+      const schema = authMode === "login" ? loginSchema : registerSchema;
+      const parsed = schema.safeParse(body);
+      if (!parsed.success) {
+        setError(parsed.error.issues[0].message);
+        setIsLoading(false);
+        return;
+      }
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Login failed");
+        setError(data.error || (authMode === "login" ? "Login failed" : "Registration failed"));
         return;
       }
 
-      toast.success("Logged in successfully");
+      toast.success(authMode === "login" ? "Logged in successfully" : "Account created successfully");
       if (onSuccess) {
-        onSuccess(credentials.username);
+        onSuccess();
       } else {
         router.push("/");
         router.refresh();
@@ -84,10 +97,12 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
           <span className="text-2xl font-bold text-primary-foreground">D</span>
         </div>
         <CardTitle className="text-2xl font-bold tracking-tight">
-          Welcome to DoMa
+          {authMode === "login" ? "Welcome back" : "Create your account"}
         </CardTitle>
         <CardDescription>
-          Connect to your TorBox cloud storage
+          {authMode === "login"
+            ? "Sign in to access your TorBox files"
+            : "Create a DoMa account to manage your TorBox connections"}
         </CardDescription>
       </CardHeader>
 
@@ -95,75 +110,107 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
         <Tabs
           value={authMode}
           onValueChange={(v) => {
-            setAuthMode(v as "email" | "apikey");
+            setAuthMode(v as "login" | "register");
             setError(null);
           }}
         >
           <TabsList>
-            <TabsTrigger value="email">Email + Password</TabsTrigger>
-            <TabsTrigger value="apikey">API Key</TabsTrigger>
+            <TabsTrigger value="login">Log In</TabsTrigger>
+            <TabsTrigger value="register">Sign Up</TabsTrigger>
           </TabsList>
 
           <form onSubmit={handleSubmit}>
-            <TabsContent value="email">
+            <TabsContent value="login">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    Email
+                  <label htmlFor="login-username" className="text-sm font-medium">
+                    Username
                   </label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="login-username"
+                    type="text"
+                    placeholder="yourusername"
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
                     disabled={isLoading}
-                    autoComplete="email"
+                    autoComplete="username"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium">
+                  <label htmlFor="login-password" className="text-sm font-medium">
                     Password
                   </label>
                   <Input
-                    id="password"
+                    id="login-password"
                     type="password"
                     placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
                     disabled={isLoading}
                     autoComplete="current-password"
+                    required
                   />
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="apikey">
+            <TabsContent value="register">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="apikey" className="text-sm font-medium">
-                    API Key
+                  <label htmlFor="reg-username" className="text-sm font-medium">
+                    Username
                   </label>
                   <Input
-                    id="apikey"
-                    type="password"
-                    placeholder="Paste your TorBox API key"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
+                    id="reg-username"
+                    type="text"
+                    placeholder="yourusername"
+                    value={regUsername}
+                    onChange={(e) => setRegUsername(e.target.value)}
                     disabled={isLoading}
-                    autoComplete="off"
+                    autoComplete="username"
+                    required
+                    minLength={3}
+                    maxLength={50}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Find your API key at{" "}
-                    <a
-                      href="https://torbox.app/settings"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      torbox.app/settings
-                    </a>
+                    At least 3 characters
                   </p>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="reg-password" className="text-sm font-medium">
+                    Password
+                  </label>
+                  <Input
+                    id="reg-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    disabled={isLoading}
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    maxLength={100}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    At least 8 characters
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="reg-confirm-password" className="text-sm font-medium">
+                    Confirm Password
+                  </label>
+                  <Input
+                    id="reg-confirm-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={regConfirmPassword}
+                    onChange={(e) => setRegConfirmPassword(e.target.value)}
+                    disabled={isLoading}
+                    autoComplete="new-password"
+                    required
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -182,10 +229,18 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
             >
               {isLoading ? (
                 <Loader2 className="animate-spin" size={18} />
-              ) : (
+              ) : authMode === "login" ? (
                 <LogIn size={18} />
+              ) : (
+                <UserPlus size={18} />
               )}
-              {isLoading ? "Connecting..." : "Connect"}
+              {isLoading
+                ? authMode === "login"
+                  ? "Signing in..."
+                  : "Creating account..."
+                : authMode === "login"
+                ? "Sign In"
+                : "Create Account"}
             </Button>
           </form>
         </Tabs>
