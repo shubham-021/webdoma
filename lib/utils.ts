@@ -97,6 +97,33 @@ export function getExtension(filename: string): string {
   return filename.split(".").pop()?.toLowerCase() || "";
 }
 
+// Parse filename to extract title and year
+// Matches patterns like: "Movie.Title.2019.1080p.BluRay.x264"
+export function parseFilename(filename: string) {
+  let title = filename;
+  let year = "";
+
+  // Remove extension
+  title = title.replace(/\.[^/.]+$/, "");
+
+  // Match Title and Year (e.g. Joker.2019.2160p...)
+  // This regex looks for something ending with a year (19xx or 20xx)
+  const match = title.match(/^(.*?)[. _-](\b(?:19|20)\d{2}\b)/);
+
+  if (match) {
+    title = match[1];
+    year = match[2];
+  } else {
+    // If no year found, strip common release tags anyway
+    title = title.replace(/(1080p|720p|2160p|4k|bluray|web-dl|hevc|x264|x265|remux).*/i, "");
+  }
+
+  // Replace dots and underscores with spaces
+  title = title.replace(/[\._]/g, " ").trim();
+
+  return { title, year };
+}
+
 // Build breadcrumbs from a path string
 export function buildBreadcrumbs(
   path: string

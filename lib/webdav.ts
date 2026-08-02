@@ -1,5 +1,4 @@
 import { createClient, type WebDAVClient } from "webdav";
-import { getSession } from "./session";
 import { WEBDAV_BASE_URL } from "./constants";
 
 export function createWebDAVClient(
@@ -10,14 +9,6 @@ export function createWebDAVClient(
     username,
     password,
   });
-}
-
-export async function getAuthenticatedClient(): Promise<WebDAVClient> {
-  const session = await getSession();
-  if (!session.username || !session.password) {
-    throw new Error("Not authenticated");
-  }
-  return createWebDAVClient(session.username, session.password);
 }
 
 export async function withRetry<T>(

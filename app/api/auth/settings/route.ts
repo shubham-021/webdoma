@@ -9,7 +9,7 @@ const updateSchema = z.object({
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    if (!session.username || !session.password) {
+    if (!session.userId) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 

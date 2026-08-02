@@ -12,6 +12,7 @@ interface FileActionsProps {
   fileName: string;
   isMedia: boolean;
   playerProtocol: string;
+  accountId: number;
 }
 
 export function FileActions({
@@ -19,6 +20,7 @@ export function FileActions({
   fileName,
   isMedia,
   playerProtocol,
+  accountId,
 }: FileActionsProps) {
   const [isCopying, setIsCopying] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -28,7 +30,7 @@ export function FileActions({
       const res = await fetch("/api/auth/create-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath }),
+        body: JSON.stringify({ filePath, account_id: accountId }),
       });
 
       if (!res.ok) {
@@ -43,7 +45,7 @@ export function FileActions({
       toast.error("Network error");
       return null;
     }
-  }, [filePath]);
+  }, [filePath, accountId]);
 
   const handleCopyLink = useCallback(async () => {
     setIsCopying(true);
@@ -73,7 +75,7 @@ export function FileActions({
         const res = await fetch("/api/player/launch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filePath, player: playerProtocol }),
+          body: JSON.stringify({ filePath, player: playerProtocol, account_id: accountId }),
         });
 
         if (res.ok) {
@@ -111,16 +113,16 @@ export function FileActions({
     } finally {
       setIsStreaming(false);
     }
-  }, [createTokenAndGetURL, playerProtocol, fileName, filePath]);
+  }, [createTokenAndGetURL, playerProtocol, fileName, filePath, accountId]);
 
   const handleDownload = useCallback(() => {
     const encodedPath = filePath
       .split("/")
       .map(encodeURIComponent)
       .join("/");
-    window.open(`/api/download${encodedPath}`, "_blank");
+    window.open(`/api/download${encodedPath}?account_id=${accountId}`, "_blank");
     toast.success("Download started", { description: fileName });
-  }, [filePath, fileName]);
+  }, [filePath, fileName, accountId]);
 
   return (
     <div className="flex items-center gap-1">

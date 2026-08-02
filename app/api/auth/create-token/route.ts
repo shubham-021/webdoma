@@ -2,15 +2,18 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { createToken } from "@/lib/tokens";
+import { decrypt } from "@/lib/crypto";
+import { getAccountById } from "@/lib/db";
 
 const createTokenSchema = z.object({
   filePath: z.string().min(1, "File path is required"),
+  account_id: z.number().int().positive(),
 });
 
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    if (!session.username || !session.password) {
+    if (!session.userId) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
@@ -27,10 +30,25 @@ export async function POST(request: Request) {
       );
     }
 
+    const { filePath, account_id } = parsed.data;
+
+    // Get account and decrypt password
+    const account = getAccountById(account_id);
+    if (!account || account.user_id !== session.userId) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+
+    let password: string;
+    try {
+      password = decrypt(account.webdav_password);
+    } catch {
+      return NextResponse.json({ error: "Failed to decrypt password" }, { status: 500 });
+    }
+
     const { token, expiresAt } = createToken(
-      parsed.data.filePath,
-      session.username,
-      session.password
+      filePath,
+      account.webdav_username,
+      password
     );
 
     return NextResponse.json({

@@ -3,18 +3,20 @@ import { getSession } from "@/lib/session";
 import { Sidebar } from "@/components/sidebar";
 import { FileBrowser } from "@/components/file-browser";
 import { AccountSwitcher } from "@/components/account-switcher";
+import { getAccountsByUserId } from "@/lib/db";
 
 export default async function HomePage() {
   const session = await getSession();
 
-  if (!session.username || !session.password) {
+  if (!session.userId) {
     redirect("/login");
   }
 
-  // Ensure accounts array exists and is not empty for backwards compatibility
-  const accounts = (session.accounts && session.accounts.length > 0)
-    ? session.accounts
-    : [{ username: session.username!, password: session.password! }];
+  // Get TorBox accounts from database
+  const accounts = getAccountsByUserId(session.userId);
+
+  // Determine active account from URL or use first account
+  // The FileBrowser will handle account switching via URL param
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -25,10 +27,10 @@ export default async function HomePage() {
             DoMa Files
           </div>
           <div className="flex items-center gap-4 ml-auto">
-            <AccountSwitcher accounts={accounts} activeUsername={session.username} />
+            <AccountSwitcher accounts={accounts} />
           </div>
         </div>
-        <FileBrowser playerProtocol={session.playerProtocol || "vlc"} />
+        <FileBrowser playerProtocol={session.playerProtocol || "vlc"} hasAccounts={accounts.length > 0} />
       </main>
     </div>
   );

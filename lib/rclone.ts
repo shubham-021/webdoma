@@ -12,6 +12,8 @@ export async function isRcloneInstalled(): Promise<boolean> {
   }
 }
 
-export function getRcloneConfigName(username: string): string {
-  return username.split('@')[0] + "_torbox_1";
+// Get the rclone config name from the account record
+// This is stored in the database as <username>_torbox_<n>
+export function getRcloneConfigName(configName: string): string {
+  return configName;
 }

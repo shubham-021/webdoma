@@ -6,7 +6,7 @@ export default async function LoginPage() {
   const session = await getSession();
 
   // If already logged in, redirect to home
-  if (session.username && session.password) {
+  if (session.userId) {
     redirect("/");
   }
 

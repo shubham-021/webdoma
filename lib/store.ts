@@ -11,12 +11,12 @@ export interface DirectoryData {
 }
 
 interface FileStoreState {
-  // Directory cache: maps `${username}:${path}` to its contents
+  // Directory cache: maps `${accountId}:${path}` to its contents
   directoryCache: Record<string, DirectoryData>;
   currentPath: string;
   isLoading: boolean;
   error: string | null;
-  activeUsername: string | null;
+  activeAccountId: number | null;
   
   // UI State
   viewMode: "grid" | "list";
@@ -25,7 +25,7 @@ interface FileStoreState {
   sortOrder: SortOrder;
 
   // Actions
-  setActiveUsername: (username: string) => void;
+  setActiveAccountId: (accountId: number) => void;
   setCurrentPath: (path: string) => void;
   setViewMode: (mode: "grid" | "list") => void;
   setSearchQuery: (query: string) => void;
@@ -41,14 +41,14 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   currentPath: "/",
   isLoading: false,
   error: null,
-  activeUsername: null,
+  activeAccountId: null,
   
   viewMode: "grid",
   searchQuery: "",
   sortKey: "name",
   sortOrder: "asc",
 
-  setActiveUsername: (username) => set({ activeUsername: username, currentPath: "/" }),
+  setActiveAccountId: (accountId) => set({ activeAccountId: accountId, currentPath: "/" }),
   setCurrentPath: (path) => set({ currentPath: path, searchQuery: "" }),
   setViewMode: (mode) => set({ viewMode: mode }),
   setSearchQuery: (query) => set({ searchQuery: query }),
@@ -67,8 +67,8 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   },
 
   fetchFiles: async (path: string, forceRefresh = false) => {
-    const { directoryCache, activeUsername } = get();
-    const cacheKey = activeUsername ? `${activeUsername}:${path}` : path;
+    const { directoryCache, activeAccountId } = get();
+    const cacheKey = activeAccountId ? `${activeAccountId}:${path}` : path;
 
     // If we have cached data and aren't forcing a refresh, just set current path and return
     if (!forceRefresh && directoryCache[cacheKey]) {
@@ -80,9 +80,11 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
     set({ isLoading: true, error: null, currentPath: path });
 
     try {
-      const res = await fetch(
-        `/api/files?path=${encodeURIComponent(path)}${forceRefresh ? "&refresh=true" : ""}`
-      );
+      const params = new URLSearchParams();
+      if (activeAccountId) params.set("account_id", activeAccountId.toString());
+      if (forceRefresh) params.set("refresh", "true");
+      
+      const res = await fetch(`/api/files?${params.toString()}`);
 
       if (res.status === 401) {
         window.location.href = "/login";
@@ -102,8 +104,7 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
       };
 
       set((state) => {
-        const activeUser = state.activeUsername;
-        const currentCacheKey = activeUser ? `${activeUser}:${path}` : path;
+        const currentCacheKey = state.activeAccountId ? `${state.activeAccountId}:${path}` : path;
         return {
           directoryCache: {
             ...state.directoryCache,
