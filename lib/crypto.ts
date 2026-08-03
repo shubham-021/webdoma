@@ -42,6 +42,32 @@ export function encrypt(plaintext: string): string {
   return [iv.toString("hex"), authTag.toString("hex"), encrypted.toString("hex")].join(":");
 }
 
+function deriveAemondKey(): Buffer {
+  const secret = process.env.AEMOND_CRED_KEY;
+  if (!secret) {
+    throw new Error("AEMOND_CRED_KEY environment variable is not set");
+  }
+  return createHash("sha256").update(secret).digest();
+}
+
+/**
+ * Encrypts a payload meant for the local client aemond.ts daemon.
+ * Uses AEMOND_CRED_KEY as the symmetric shared secret.
+ */
+export function encryptAemondPayload(plaintext: string): string {
+  const key = deriveAemondKey();
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: TAG_LENGTH });
+
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, "utf8"),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  return [iv.toString("hex"), authTag.toString("hex"), encrypted.toString("hex")].join(":");
+}
+
 /**
  * Decrypts a ciphertext produced by `encrypt`.
  * Throws if the data is tampered with or the key is wrong.
