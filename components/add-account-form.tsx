@@ -17,7 +17,6 @@ import {
 const addAccountSchema = z.object({
   webdav_username: z.string().min(1, "TorBox email or 'torbox' is required"),
   webdav_password: z.string().min(1, "API Key is required"),
-  display_name: z.string().optional(),
 });
 
 interface AddAccountFormProps {
@@ -33,7 +32,6 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
   // Form fields
   const [webdavUsername, setWebdavUsername] = useState("");
   const [webdavPassword, setWebdavPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +42,6 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
       const body = {
         webdav_username: webdavUsername,
         webdav_password: webdavPassword,
-        display_name: displayName || undefined,
       };
 
       const parsed = addAccountSchema.safeParse(body);
@@ -70,7 +67,6 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
       toast.success("TorBox account added & synced successfully!");
       setWebdavUsername("");
       setWebdavPassword("");
-      setDisplayName("");
       onOpenChange(false);
       if (onSuccess) onSuccess(data.account);
     } catch {
@@ -132,19 +128,6 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
               />
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="display-name" className="text-sm font-medium">
-                Display Name (optional)
-              </label>
-              <Input
-                id="display-name"
-                type="text"
-                placeholder="e.g. Personal, Work, Family"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
 
             {error && (
               <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">

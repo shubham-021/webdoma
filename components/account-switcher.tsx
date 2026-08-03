@@ -121,7 +121,7 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
                 <User size={12} className="text-primary" />
               </div>
               <span className="truncate text-sm">
-                {activeAccount?.display_name || activeAccount?.webdav_username}
+                {activeAccount?.webdav_username}
               </span>
             </div>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -142,7 +142,7 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
                   <User size={12} className={account.is_active ? "text-green-600 dark:text-green-400" : "text-gray-400"} />
                 </div>
                 <span className="truncate">
-                  {account.display_name || account.webdav_username}
+                  {account.webdav_username}
                 </span>
               </div>
               <div className="flex items-center gap-1">

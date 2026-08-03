@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { WEBDAV_BASE_URL } from "@/lib/constants";
 import { spawn } from "child_process";
 import { decrypt } from "@/lib/crypto";
-import { getAccountById } from "@/lib/db";
+import { getAccountById, verifyUserAccountAccess } from "@/lib/db";
 
 const launchSchema = z.object({
   filePath: z.string().min(1),
@@ -58,8 +58,8 @@ export async function POST(request: Request) {
 
     // Get account and decrypt password
     const account = getAccountById(account_id);
-    if (!account || account.user_id !== session.userId) {
-      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    if (!account || !verifyUserAccountAccess(session.userId, account_id)) {
+      return NextResponse.json({ error: "Account not found or access denied" }, { status: 404 });
     }
 
     let password: string;
