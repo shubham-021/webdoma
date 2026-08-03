@@ -35,21 +35,32 @@ try {
       )
       .run();
 
-    // ── accounts ───────────────────────────────────────────────────────────────
+    // ── accounts (TorBox globally unique accounts) ──────────────────────────────
     globalForDb.__domaDb
       .query(
         `
       CREATE TABLE IF NOT EXISTS accounts (
         id               INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        webdav_username  TEXT    NOT NULL,   -- TorBox email or "torbox"
+        webdav_username  TEXT    NOT NULL UNIQUE, -- TorBox email or "torbox"
         webdav_password  TEXT    NOT NULL,   -- encrypted ciphertext
-        display_name     TEXT,               -- optional friendly label
         rclone_config_name TEXT NOT NULL,
-        is_active        INTEGER NOT NULL DEFAULT 1,
         last_synced_at   DATETIME,
+        created_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `
+      )
+      .run();
+
+    // ── user_accounts (Junction Table) ──────────────────────────────────────────
+    globalForDb.__domaDb
+      .query(
+        `
+      CREATE TABLE IF NOT EXISTS user_accounts (
+        user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        is_active        INTEGER NOT NULL DEFAULT 1,
         created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, webdav_username)
+        PRIMARY KEY (user_id, account_id)
       )
     `
       )
@@ -196,7 +207,13 @@ export function getAccountsByUserId(userId: number) {
   if (!db) return [];
   try {
     return db
-      .query("SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at ASC")
+      .query(`
+        SELECT a.id, a.webdav_username, a.rclone_config_name, a.last_synced_at, ua.is_active 
+        FROM accounts a
+        JOIN user_accounts ua ON ua.account_id = a.id
+        WHERE ua.user_id = ?
+        ORDER BY a.created_at ASC
+      `)
       .all(userId) as any[];
   } catch (e) {
     console.error("getAccountsByUserId error:", e);
@@ -214,11 +231,27 @@ export function getAccountById(accountId: number) {
   }
 }
 
+export function verifyUserAccountAccess(userId: number, accountId: number): boolean {
+  if (!db) return false;
+  try {
+    const link = db.query("SELECT 1 FROM user_accounts WHERE user_id = ? AND account_id = ?").get(userId, accountId);
+    return !!link;
+  } catch (e) {
+    console.error("verifyUserAccountAccess error:", e);
+    return false;
+  }
+}
+
 export function getAccountByWebdavUsername(userId: number, webdavUsername: string) {
   if (!db) return null;
   try {
     return db
-      .query("SELECT * FROM accounts WHERE user_id = ? AND webdav_username = ?")
+      .query(`
+        SELECT a.*, ua.is_active 
+        FROM accounts a
+        JOIN user_accounts ua ON ua.account_id = a.id
+        WHERE ua.user_id = ? AND a.webdav_username = ?
+      `)
       .get(userId, webdavUsername) as any;
   } catch (e) {
     console.error("getAccountByWebdavUsername error:", e);
@@ -229,33 +262,44 @@ export function getAccountByWebdavUsername(userId: number, webdavUsername: strin
 export function createAccount(
   userId: number,
   webdavUsername: string,
-  encryptedPassword: string,
-  displayName?: string
+  encryptedPassword: string
 ): number | null {
   if (!db) return null;
   try {
     const user = getUserById(userId);
     if (!user) return null;
 
-    const existingCount = db
-      .query("SELECT COUNT(*) as count FROM accounts WHERE user_id = ?")
-      .get(userId) as { count: number };
-    const nextIndex = (existingCount?.count || 0) + 1;
+    let account = db.query("SELECT * FROM accounts WHERE webdav_username = ? LIMIT 1").get(webdavUsername) as any;
 
-    const rcloneConfigName = `${user.username}_torbox_${nextIndex}`;
+    if (!account) {
+      // Create new global TorBox account
+      const existingCount = db
+        .query("SELECT COUNT(*) as count FROM accounts")
+        .get() as { count: number };
+      const nextIndex = (existingCount?.count || 0) + 1;
+      const rcloneConfigName = `webdoma_torbox_${nextIndex}`;
 
-    const result = db
-      .query(
-        `INSERT INTO accounts (user_id, webdav_username, webdav_password, display_name, rclone_config_name)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(user_id, webdav_username) DO UPDATE SET
-           webdav_password = excluded.webdav_password,
-           display_name    = COALESCE(excluded.display_name, display_name),
-           rclone_config_name = excluded.rclone_config_name,
-           is_active       = 1`
-      )
-      .run(userId, webdavUsername, encryptedPassword, displayName ?? null, rcloneConfigName);
-    return result.lastInsertRowid as number;
+      const result = db
+        .query(
+          `INSERT INTO accounts (webdav_username, webdav_password, rclone_config_name)
+           VALUES (?, ?, ?)`
+        )
+        .run(webdavUsername, encryptedPassword, rcloneConfigName);
+      
+      account = db.query("SELECT * FROM accounts WHERE id = ?").get(result.lastInsertRowid) as any;
+    } else {
+      // If the password changed, update it for everyone
+      db.query("UPDATE accounts SET webdav_password = ? WHERE id = ?").run(encryptedPassword, account.id);
+    }
+
+    // Link the user to the account 
+    db.query(`
+      INSERT INTO user_accounts (user_id, account_id, is_active) 
+      VALUES (?, ?, 1) 
+      ON CONFLICT(user_id, account_id) DO UPDATE SET is_active = 1
+    `).run(userId, account.id);
+
+    return account.id;
   } catch (e) {
     console.error("createAccount error:", e);
     return null;

@@ -4,7 +4,7 @@ import { createWebDAVClient } from "@/lib/webdav";
 import { validateToken } from "@/lib/tokens";
 import { getMimeType } from "@/lib/utils";
 import { decrypt } from "@/lib/crypto";
-import { getAccountById } from "@/lib/db";
+import { getAccountById, verifyUserAccountAccess } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +46,7 @@ async function getCredentials(
     if (!session.userId) return null;
 
     const account = getAccountById(accountId);
-    if (!account || account.user_id !== session.userId) return null;
+    if (!account || !verifyUserAccountAccess(session.userId, accountId)) return null;
 
     try {
       const password = decrypt(account.webdav_password);

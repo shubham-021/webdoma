@@ -1,12 +1,16 @@
 export interface Account {
   id: number;
-  user_id: number;
   webdav_username: string;
   webdav_password: string; // encrypted
-  display_name: string | null;
   rclone_config_name: string;
-  is_active: number;
   last_synced_at: string | null;
+  created_at: string;
+}
+
+export interface UserAccount {
+  user_id: number;
+  account_id: number;
+  is_active: number;
   created_at: string;
 }
 
@@ -20,7 +24,6 @@ export interface SessionData {
 export interface TorBoxAccount {
   id: number;
   webdav_username: string;
-  display_name: string | null;
   is_active: boolean;
   last_synced_at: string | null;
 }
@@ -102,7 +105,6 @@ export interface ApiError {
 export interface AddAccountRequest {
   webdav_username: string;
   webdav_password: string;
-  display_name?: string;
 }
 
 export interface AddAccountResponse {

@@ -20,8 +20,7 @@ const db = getDb();
 
 const addAccountSchema = z.object({
   webdav_username: z.string().min(1, "WebDAV username (TorBox email or 'torbox') is required"),
-  webdav_password: z.string().min(1, "WebDAV password (API key) is required"),
-  display_name: z.string().optional(),
+  webdav_password: z.string().min(1, "WebDAV password (API key) is required")
 });
 
 export async function GET(request: Request) {
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { webdav_username, webdav_password, display_name } = parsed.data;
+    const { webdav_username, webdav_password } = parsed.data;
 
     // Check if rclone is installed
     const rcloneInstalled = await isRcloneInstalled();
@@ -76,9 +75,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Encrypt the password and save account FIRST to get the rclone config name
     const encryptedPassword = encrypt(webdav_password);
-    const accountId = createAccount(session.userId, webdav_username, encryptedPassword, display_name || undefined);
+    const accountId = createAccount(session.userId, webdav_username, encryptedPassword);
 
     if (!accountId) {
       return NextResponse.json(
@@ -157,9 +155,8 @@ export async function POST(request: Request) {
       account: {
         id: account.id,
         webdav_username: account.webdav_username,
-        display_name: account.display_name,
         rclone_config_name: account.rclone_config_name,
-        is_active: !!account.is_active,
+        is_active: true,
         last_synced_at: account.last_synced_at,
       },
     });

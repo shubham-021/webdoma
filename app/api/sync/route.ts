@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { syncAccount } from "@/lib/sync";
-import { getAccountById } from "@/lib/db";
+import { getAccountById, verifyUserAccountAccess } from "@/lib/db";
 
 const syncSchema = z.object({
   account_id: z.number().int().positive(),
@@ -26,8 +26,8 @@ export async function POST(request: Request) {
 
     // Verify account belongs to user
     const account = getAccountById(account_id);
-    if (!account || account.user_id !== session.userId) {
-      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    if (!account || !verifyUserAccountAccess(session.userId, account_id)) {
+      return NextResponse.json({ error: "Account not found or access denied" }, { status: 404 });
     }
 
     const result = await syncAccount(account_id);
