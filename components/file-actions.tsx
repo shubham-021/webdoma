@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Play, Download, Loader2 } from "lucide-react";
+import { Copy, Play, Download, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ export function FileActions({
 }: FileActionsProps) {
   const [isCopying, setIsCopying] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSyncplaying, setIsSyncplaying] = useState(false);
 
   const createTokenAndGetURL = useCallback(async (): Promise<string | null> => {
     try {
@@ -88,6 +89,44 @@ export function FileActions({
   // Players that support local client-side daemon launch (Aemond)
   const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
 
+  const handleSyncplay = useCallback(async () => {
+    if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
+      toast.error("Syncplay requires a local daemon player (mpv, vlc, iina)");
+      return;
+    }
+    setIsSyncplaying(true);
+    try {
+      const cipher = await getDirectWebdavCipher();
+      if (!cipher) return;
+
+      try {
+        const daemonRes = await fetch("http://localhost:9070/syncplay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player: playerProtocol, cipher }),
+        });
+
+        if (daemonRes.ok) {
+          const data = await daemonRes.json();
+          toast.success(`Syncplay launched via ${playerProtocol.toUpperCase()}`, {
+            description: `Joined room: ${data.room || "unknown"}`,
+          });
+          return;
+        }
+        const errData = await daemonRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Daemon returned error status");
+      } catch (e: any) {
+        toast.error("Syncplay launch failed", {
+          description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
+        });
+      }
+    } catch {
+      toast.error("Failed to start Syncplay");
+    } finally {
+      setIsSyncplaying(false);
+    }
+  }, [getDirectWebdavCipher, playerProtocol]);
+
   const handleStream = useCallback(async () => {
     setIsStreaming(true);
     try {
@@ -138,6 +177,7 @@ export function FileActions({
     } finally {
       setIsStreaming(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getDirectWebdavCipher, createTokenAndGetURL, playerProtocol, fileName, filePath, accountId]);
 
   const handleDownload = useCallback(() => {
@@ -175,28 +215,55 @@ export function FileActions({
       </Tooltip>
 
       {isMedia && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStream();
-              }}
-              disabled={isStreaming}
-              className="h-8 w-8 hover:bg-violet-500/10 hover:text-violet-400"
-              id={`stream-${fileName}`}
-            >
-              {isStreaming ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <Play size={16} />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Stream in player</TooltipContent>
-        </Tooltip>
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStream();
+                }}
+                disabled={isStreaming}
+                className="h-8 w-8 hover:bg-violet-500/10 hover:text-violet-400"
+                id={`stream-${fileName}`}
+              >
+                {isStreaming ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <Play size={16} />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Stream in player</TooltipContent>
+          </Tooltip>
+
+          {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSyncplay();
+                  }}
+                  disabled={isSyncplaying}
+                  className="h-8 w-8 hover:bg-amber-500/10 hover:text-amber-400"
+                  id={`syncplay-${fileName}`}
+                >
+                  {isSyncplaying ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <Users size={16} />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Syncplay with friends</TooltipContent>
+            </Tooltip>
+          )}
+        </>
       )}
 
       <Tooltip>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Play, Download, Copy, Tv, Layers, Film, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Download, Copy, Tv, Layers, Film, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -161,6 +161,38 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
       .join("/");
     window.open(`/api/download${encodedPath}?account_id=${activeAccountId}`, "_blank");
     toast.success("Download started");
+  };
+
+  const handleSyncplay = async (remotePath: string) => {
+    if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
+    try {
+      const res = await fetch("/api/auth/direct-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.cipher) throw new Error(data.error || "Failed to get stream cipher");
+
+      const daemonRes = await fetch("http://localhost:9070/syncplay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: playerProtocol, cipher: data.cipher }),
+      });
+
+      if (daemonRes.ok) {
+        const resData = await daemonRes.json();
+        toast.success(`Syncplay launched via ${playerProtocol.toUpperCase()}`, {
+          description: `Joined room: ${resData.room || "unknown"}`,
+        });
+        return;
+      }
+      throw new Error("Daemon returned error");
+    } catch (e: any) {
+      toast.error("Syncplay launch failed", {
+        description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
+      });
+    }
   };
 
   if (isLoading) {
@@ -325,6 +357,17 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
                   <Play size={13} className="fill-current" />
                   Stream
                 </Button>
+                {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleSyncplay(ep.remote_path)}
+                    className="h-8 w-8 shrink-0 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                    title="Syncplay with friends"
+                  >
+                    <Users size={13} />
+                  </Button>
+                )}
                 <Button
                   size="icon"
                   variant="outline"

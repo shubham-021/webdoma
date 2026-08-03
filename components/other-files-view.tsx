@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Play, Download, Copy, FolderOpen } from "lucide-react";
+import { FileText, Play, Download, Copy, FolderOpen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -118,6 +118,38 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
     toast.success("Download started");
   };
 
+  const handleSyncplay = async (remotePath: string) => {
+    if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
+    try {
+      const res = await fetch("/api/auth/direct-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.cipher) throw new Error(data.error || "Failed to get stream cipher");
+
+      const daemonRes = await fetch("http://localhost:9070/syncplay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: playerProtocol, cipher: data.cipher }),
+      });
+
+      if (daemonRes.ok) {
+        const resData = await daemonRes.json();
+        toast.success(`Syncplay launched via ${playerProtocol.toUpperCase()}`, {
+          description: `Joined room: ${resData.room || "unknown"}`,
+        });
+        return;
+      }
+      throw new Error("Daemon returned error");
+    } catch (e: any) {
+      toast.error("Syncplay launch failed", {
+        description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
@@ -186,6 +218,17 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
             >
               <Download size={13} />
             </Button>
+            {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => handleSyncplay(file.remote_path)}
+                className="h-8 w-8 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                title="Syncplay with friends"
+              >
+                <Users size={13} />
+              </Button>
+            )}
           </div>
         </Card>
       ))}
