@@ -92,34 +92,50 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
     }
   };
 
-  const SERVER_LAUNCH_PLAYERS = ["mpv", "vlc", "iina"];
+  const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
 
   const handleStream = async (remotePath: string) => {
     try {
-      if (SERVER_LAUNCH_PLAYERS.includes(playerProtocol)) {
-        const res = await fetch("/api/player/launch", {
+      if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
+        // FAST DIRECT PATH: Fetch encrypted WebDAV URL for Aemond daemon
+        const res = await fetch("/api/auth/direct-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filePath: remotePath, player: playerProtocol, account_id: activeAccountId }),
+          body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
         });
+        const data = await res.json();
+        if (!res.ok || !data.cipher) throw new Error(data.error || "Failed to get stream cipher");
 
-        if (res.ok) {
-          toast.success(`Launched ${playerProtocol.toUpperCase()}`);
+        try {
+          const daemonRes = await fetch("http://localhost:9070/play", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ player: playerProtocol, cipher: data.cipher }),
+          });
+
+          if (daemonRes.ok) {
+            toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
+              description: "High-speed encrypted bypass active."
+            });
+            return;
+          }
+          throw new Error("Daemon returned error status");
+        } catch (e: any) {
+          toast.error("Local daemon connection failed", { 
+            description: "Ensure WebDoMa Aemond is running on port 9070 on your machine." 
+          });
           return;
         }
-
-        const data = await res.json();
-        toast.error(`Failed to launch ${playerProtocol}`, { description: data.error });
-        return;
       }
 
+      // SECURE PROXY PATH: For external protocol handlers (potplayer, infuse)
       const res = await fetch("/api/auth/create-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
       });
       const data = await res.json();
-      if (!res.ok || !data.token) throw new Error(data.error || "Failed to create token");
+      if (!res.ok || !data.token) throw new Error(data.error || "Failed to create proxy token");
 
       const streamUrl = `${window.location.origin}/api/stream${remotePath}?token=${data.token}`;
       const playerUrl = buildPlayerURL(playerProtocol, streamUrl);
@@ -130,7 +146,9 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success(`Opening in ${playerProtocol.toUpperCase()}`);
+      toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
+        description: "Standard proxy stream active."
+      });
     } catch {
       toast.error("Failed to start stream");
     }

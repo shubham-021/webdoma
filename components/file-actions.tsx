@@ -47,6 +47,27 @@ export function FileActions({
     }
   }, [filePath, accountId]);
 
+  const getDirectWebdavCipher = useCallback(async (): Promise<string | null> => {
+    try {
+      const res = await fetch("/api/auth/direct-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath, account_id: accountId }),
+      });
+
+      if (!res.ok) {
+        toast.error("Failed to get encrypted stream cipher");
+        return null;
+      }
+
+      const data = await res.json();
+      return data.cipher;
+    } catch {
+      toast.error("Network error");
+      return null;
+    }
+  }, [filePath, accountId]);
+
   const handleCopyLink = useCallback(async () => {
     setIsCopying(true);
     try {
@@ -64,36 +85,40 @@ export function FileActions({
     }
   }, [createTokenAndGetURL]);
 
-  // Players that support server-side launch (spawned directly on the host)
-  const SERVER_LAUNCH_PLAYERS = ["mpv", "vlc", "iina"];
+  // Players that support local client-side daemon launch (Aemond)
+  const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
 
   const handleStream = useCallback(async () => {
     setIsStreaming(true);
     try {
-      // For mpv/vlc/iina: use server-side launch (spawn on host machine)
-      if (SERVER_LAUNCH_PLAYERS.includes(playerProtocol)) {
-        const res = await fetch("/api/player/launch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filePath, player: playerProtocol, account_id: accountId }),
-        });
+      if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
+        // FAST DIRECT PATH: Fetch encrypted WebDAV URL for Aemond daemon
+        const cipher = await getDirectWebdavCipher();
+        if (!cipher) return;
 
-        if (res.ok) {
-          toast.success(`Launched ${playerProtocol.toUpperCase()}`, {
-            description: fileName,
+        try {
+          const daemonRes = await fetch("http://localhost:9070/play", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ player: playerProtocol, cipher }),
+          });
+
+          if (daemonRes.ok) {
+            toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
+              description: "High-speed encrypted bypass active",
+            });
+            return;
+          }
+          throw new Error("Daemon returned error status");
+        } catch (e: any) {
+          toast.error("Local daemon connection failed", { 
+            description: "Ensure WebDoMa Aemond is running on port 9070 on your machine." 
           });
           return;
         }
-
-        // If server launch failed, show the error
-        const data = await res.json();
-        toast.error(`Failed to launch ${playerProtocol}`, {
-          description: data.error || "Make sure the player is installed",
-        });
-        return;
       }
 
-      // For protocol-handler players (potplayer, infuse, custom): use client-side approach
+      // SECURE PROXY PATH: For external protocol handlers (potplayer, infuse)
       const streamURL = await createTokenAndGetURL();
       if (!streamURL) return;
 
@@ -106,14 +131,14 @@ export function FileActions({
       link.click();
       document.body.removeChild(link);
       toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-        description: fileName,
+        description: "Standard proxy stream active",
       });
     } catch {
       toast.error("Failed to open stream");
     } finally {
       setIsStreaming(false);
     }
-  }, [createTokenAndGetURL, playerProtocol, fileName, filePath, accountId]);
+  }, [getDirectWebdavCipher, createTokenAndGetURL, playerProtocol, fileName, filePath, accountId]);
 
   const handleDownload = useCallback(() => {
     const encodedPath = filePath
