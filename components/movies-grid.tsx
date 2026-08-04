@@ -224,10 +224,10 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol, act
                 <Button
                   size="sm"
                   onClick={() => handleStream(movie.remote_path)}
-                  className="flex-1 h-10 text-sm font-semibold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg cursor-pointer"
+                  className="h-10 w-10 shrink-0 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
                 >
                   <Play size={15} className="fill-current" />
-                  Stream
+                 
                 </Button>
                 <Button
                   size="icon"
