@@ -227,7 +227,6 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol, act
                   className="h-10 w-10 shrink-0 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
                 >
                   <Play size={15} className="fill-current" />
-                 
                 </Button>
                 <Button
                   size="icon"
