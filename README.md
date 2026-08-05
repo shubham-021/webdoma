@@ -1,5 +1,8 @@
 # WebDoMa
 
+> **Faster CDN Streaming Architecture Available!**
+> We are transitioning to a much faster, native TorBox API integration in the **[`feat/cdn_links`](https://github.com/shubham-021/webdoma/tree/feat/cdn_links)** branch. This new architecture replaces `rclone` and WebDAV entirely, retrieving high-speed CDN links directly for lightning-fast streaming and browsing. Check it out!
+
 A web interface to browse, stream, and download files from your TorBox cloud storage.
 
 ## How It Works
