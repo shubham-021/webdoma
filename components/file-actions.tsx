@@ -8,15 +8,20 @@ import { useState, useCallback } from "react";
 import { buildPlayerURL } from "@/lib/players";
 
 interface FileActionsProps {
-  filePath: string;
+  torrentId: number;
+  fileId: number;
   fileName: string;
   isMedia: boolean;
   playerProtocol: string;
   accountId: number;
 }
 
+// Players that support local client-side daemon launch (Aemond)
+const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
+
 export function FileActions({
-  filePath,
+  torrentId,
+  fileId,
   fileName,
   isMedia,
   playerProtocol,
@@ -26,68 +31,46 @@ export function FileActions({
   const [isStreaming, setIsStreaming] = useState(false);
   const [isSyncplaying, setIsSyncplaying] = useState(false);
 
-  const createTokenAndGetURL = useCallback(async (): Promise<string | null> => {
+  const getCdnLink = useCallback(async (): Promise<string | null> => {
     try {
-      const res = await fetch("/api/auth/create-token", {
+      const res = await fetch("/api/cdn-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath, account_id: accountId }),
+        body: JSON.stringify({
+          torrent_id: torrentId,
+          file_id: fileId,
+          account_id: accountId,
+        }),
       });
 
       if (!res.ok) {
-        toast.error("Failed to create stream token");
+        const data = await res.json().catch(() => ({}));
+        toast.error((data as { error?: string }).error || "Failed to get CDN link");
         return null;
       }
 
       const data = await res.json();
-      const streamURL = `${window.location.origin}/api/stream${filePath}?token=${data.token}`;
-      return streamURL;
+      return data.url;
     } catch {
       toast.error("Network error");
       return null;
     }
-  }, [filePath, accountId]);
-
-  const getDirectWebdavCipher = useCallback(async (): Promise<string | null> => {
-    try {
-      const res = await fetch("/api/auth/direct-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath, account_id: accountId }),
-      });
-
-      if (!res.ok) {
-        toast.error("Failed to get encrypted stream cipher");
-        return null;
-      }
-
-      const data = await res.json();
-      return data.cipher;
-    } catch {
-      toast.error("Network error");
-      return null;
-    }
-  }, [filePath, accountId]);
+  }, [torrentId, fileId, accountId]);
 
   const handleCopyLink = useCallback(async () => {
     setIsCopying(true);
     try {
-      const streamURL = await createTokenAndGetURL();
-      if (!streamURL) return;
+      const cdnUrl = await getCdnLink();
+      if (!cdnUrl) return;
 
-      await navigator.clipboard.writeText(streamURL);
-      toast.success("Link copied to clipboard", {
-        description: `Valid for 1 hour`,
-      });
+      await navigator.clipboard.writeText(cdnUrl);
+      toast.success("CDN link copied to clipboard");
     } catch {
       toast.error("Failed to copy link");
     } finally {
       setIsCopying(false);
     }
-  }, [createTokenAndGetURL]);
-
-  // Players that support local client-side daemon launch (Aemond)
-  const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
+  }, [getCdnLink]);
 
   const handleSyncplay = useCallback(async () => {
     if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
@@ -96,14 +79,14 @@ export function FileActions({
     }
     setIsSyncplaying(true);
     try {
-      const cipher = await getDirectWebdavCipher();
-      if (!cipher) return;
+      const cdnUrl = await getCdnLink();
+      if (!cdnUrl) return;
 
       try {
         const daemonRes = await fetch("http://localhost:9070/syncplay", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: playerProtocol, cipher }),
+          body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
         });
 
         if (daemonRes.ok) {
@@ -114,7 +97,7 @@ export function FileActions({
           return;
         }
         const errData = await daemonRes.json().catch(() => ({}));
-        throw new Error(errData.error || "Daemon returned error status");
+        throw new Error((errData as { error?: string }).error || "Daemon returned error status");
       } catch (e: any) {
         toast.error("Syncplay launch failed", {
           description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
@@ -125,26 +108,26 @@ export function FileActions({
     } finally {
       setIsSyncplaying(false);
     }
-  }, [getDirectWebdavCipher, playerProtocol]);
+  }, [getCdnLink, playerProtocol]);
 
   const handleStream = useCallback(async () => {
     setIsStreaming(true);
     try {
-      if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
-        // FAST DIRECT PATH: Fetch encrypted WebDAV URL for Aemond daemon
-        const cipher = await getDirectWebdavCipher();
-        if (!cipher) return;
+      const cdnUrl = await getCdnLink();
+      if (!cdnUrl) return;
 
+      if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
+        // Send CDN URL directly to Aemond daemon
         try {
           const daemonRes = await fetch("http://localhost:9070/play", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ player: playerProtocol, cipher }),
+            body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
           });
 
           if (daemonRes.ok) {
             toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-              description: "High-speed encrypted bypass active",
+              description: "CDN stream active",
             });
             return;
           }
@@ -157,11 +140,8 @@ export function FileActions({
         }
       }
 
-      // SECURE PROXY PATH: For external protocol handlers (potplayer, infuse)
-      const streamURL = await createTokenAndGetURL();
-      if (!streamURL) return;
-
-      const playerURL = buildPlayerURL(playerProtocol, streamURL);
+      // Protocol handler path (potplayer, infuse, etc.)
+      const playerURL = buildPlayerURL(playerProtocol, cdnUrl);
 
       const link = document.createElement("a");
       link.href = playerURL;
@@ -170,24 +150,21 @@ export function FileActions({
       link.click();
       document.body.removeChild(link);
       toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-        description: "Standard proxy stream active",
+        description: "CDN stream active",
       });
     } catch {
       toast.error("Failed to open stream");
     } finally {
       setIsStreaming(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getDirectWebdavCipher, createTokenAndGetURL, playerProtocol, fileName, filePath, accountId]);
+  }, [getCdnLink, playerProtocol]);
 
-  const handleDownload = useCallback(() => {
-    const encodedPath = filePath
-      .split("/")
-      .map(encodeURIComponent)
-      .join("/");
-    window.open(`/api/download${encodedPath}?account_id=${accountId}`, "_blank");
+  const handleDownload = useCallback(async () => {
+    const cdnUrl = await getCdnLink();
+    if (!cdnUrl) return;
+    window.open(cdnUrl, "_blank");
     toast.success("Download started", { description: fileName });
-  }, [filePath, fileName, accountId]);
+  }, [getCdnLink, fileName]);
 
   return (
     <div className="flex items-center gap-1">
@@ -211,7 +188,7 @@ export function FileActions({
             )}
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Copy stream link</TooltipContent>
+        <TooltipContent>Copy CDN link</TooltipContent>
       </Tooltip>
 
       {isMedia && (

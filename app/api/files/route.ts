@@ -38,18 +38,19 @@ export async function GET(request: Request) {
     // Transform to FileItem format
     const items: FileItem[] = dbFiles.map((row) => {
       const filename = row.filename;
-      const ext = filename.split(".").pop()?.toLowerCase() || "";
       const size = row.size || 0;
 
       return {
         id: row.id,
         account_id: row.account_id,
+        torrent_id: row.torrent_id,
+        file_id: row.file_id,
         remote_path: row.remote_path,
         filename,
+        short_name: row.short_name,
         size,
         sizeFormatted: formatBytes(size),
         mime_type: row.mime_type || "video/mp4",
-        last_modified: row.last_modified,
         tmdb_id: row.tmdb_id,
         raw_title: row.raw_title,
         raw_year: row.raw_year,

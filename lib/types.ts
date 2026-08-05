@@ -1,8 +1,10 @@
 export interface Account {
   id: number;
-  webdav_username: string;
-  webdav_password: string; // encrypted
-  rclone_config_name: string;
+  torbox_email: string;
+  torbox_password: string; // AES-256-GCM encrypted
+  access_token: string | null;
+  refresh_token: string | null;
+  token_expires_at: number | null; // unix timestamp (seconds)
   last_synced_at: string | null;
   created_at: string;
 }
@@ -16,14 +18,14 @@ export interface UserAccount {
 
 // Session data stored in encrypted iron-session cookie
 export interface SessionData {
-  userId?: number;           // Application user ID (replaces username/password)
+  userId?: number;           // Application user ID
   playerProtocol: string;    // default: "vlc"
 }
 
 // TorBox account response for client-side display
 export interface TorBoxAccount {
   id: number;
-  webdav_username: string;
+  torbox_email: string;
   is_active: boolean;
   last_synced_at: string | null;
 }
@@ -32,12 +34,14 @@ export interface TorBoxAccount {
 export interface FileItem {
   id: number;
   account_id: number;
-  remote_path: string;
-  filename: string;
+  torrent_id: number;
+  file_id: number;
+  remote_path: string;     // files[].name from TorBox API (e.g. "Movie Folder/Movie.mkv")
+  filename: string;        // basename extracted from remote_path
+  short_name: string | null;
   size: number;
   sizeFormatted: string;
   mime_type: string;
-  last_modified: string;
   tmdb_id: number | null;
   raw_title: string | null;
   raw_year: string | null;
@@ -63,14 +67,6 @@ export interface PlayerConfig {
   platforms: string[];
 }
 
-// Stream token for native player auth
-export interface StreamToken {
-  filePath: string;
-  username: string;
-  password: string;
-  expiresAt: number; // Unix timestamp
-}
-
 // API response types
 export interface FilesResponse {
   items: FileItem[];
@@ -88,13 +84,16 @@ export interface RegisterRequest {
   password: string;
 }
 
-export interface CreateTokenRequest {
-  filePath: string;
+// CDN link request/response (replaces create-token and direct-url)
+export interface CdnLinkRequest {
+  torrent_id: number;
+  file_id: number;
+  account_id: number;
 }
 
-export interface CreateTokenResponse {
-  token: string;
-  expiresAt: string;
+export interface CdnLinkResponse {
+  success: boolean;
+  url: string;
 }
 
 export interface ApiError {
@@ -103,8 +102,8 @@ export interface ApiError {
 
 // Account management
 export interface AddAccountRequest {
-  webdav_username: string;
-  webdav_password: string;
+  torbox_email: string;
+  torbox_password: string;
 }
 
 export interface AddAccountResponse {

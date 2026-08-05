@@ -4,7 +4,7 @@ import type { PlayerConfig } from "./types";
 
 export const VIDEO_EXTENSIONS = new Set([
   "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v",
-  "mpg", "mpeg", "ts", , "vob", "3gp", "ogv",
+  "mpg", "mpeg", "ts", "vob", "3gp", "ogv",
 ]);
 
 export const AUDIO_EXTENSIONS = new Set([
@@ -71,5 +71,3 @@ export const PLAYERS: PlayerConfig[] = [
 // --- Defaults ---
 
 export const DEFAULT_PLAYER_PROTOCOL = "vlc";
-export const WEBDAV_BASE_URL = process.env.WEBDAV_BASE_URL || "https://webdav.torbox.app";
-export const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour

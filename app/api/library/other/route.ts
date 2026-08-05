@@ -31,12 +31,14 @@ export async function GET(request: Request) {
     const items = rawFiles.map((row) => ({
       id: row.id,
       account_id: row.account_id,
+      torrent_id: row.torrent_id,
+      file_id: row.file_id,
       remote_path: row.remote_path,
       filename: row.filename,
+      short_name: row.short_name,
       size: row.size,
       sizeFormatted: formatBytes(row.size || 0),
       mime_type: row.mime_type,
-      last_modified: row.last_modified,
     }));
 
     return NextResponse.json({ items });

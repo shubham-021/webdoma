@@ -21,6 +21,28 @@ try {
     globalForDb.__domaDb.query("PRAGMA busy_timeout = 5000").run();
     globalForDb.__domaDb.query("PRAGMA foreign_keys = ON").run();
 
+    // ── Schema Migration: detect old schema and migrate ───────────────────────
+    // Check if accounts table has old webdav columns
+    try {
+      const tableInfo = globalForDb.__domaDb
+        .query("PRAGMA table_info(accounts)")
+        .all() as { name: string }[];
+      const columnNames = tableInfo.map((c) => c.name);
+
+      if (columnNames.includes("webdav_username")) {
+        // Old schema detected — drop and recreate accounts + remote_list_cache
+        console.log("[DB Migration] Old WebDAV schema detected — migrating to TorBox API schema...");
+        globalForDb.__domaDb.query("DROP TABLE IF EXISTS user_accounts").run();
+        globalForDb.__domaDb.query("DROP TABLE IF EXISTS remote_list_cache").run();
+        globalForDb.__domaDb.query("DROP TABLE IF EXISTS tv_episodes").run();
+        globalForDb.__domaDb.query("DROP TABLE IF EXISTS media").run();
+        globalForDb.__domaDb.query("DROP TABLE IF EXISTS accounts").run();
+        console.log("[DB Migration] Old tables dropped. Recreating with new schema...");
+      }
+    } catch (_) {
+      // No existing accounts table — fresh install
+    }
+
     // ── users ──────────────────────────────────────────────────────────────────
     globalForDb.__domaDb
       .query(
@@ -35,17 +57,20 @@ try {
       )
       .run();
 
-    // ── accounts (TorBox globally unique accounts) ──────────────────────────────
+    // ── accounts (TorBox accounts) ──────────────────────────────────────────
     globalForDb.__domaDb
       .query(
         `
       CREATE TABLE IF NOT EXISTS accounts (
         id               INTEGER PRIMARY KEY AUTOINCREMENT,
-        webdav_username  TEXT    NOT NULL UNIQUE, -- TorBox email or "torbox"
-        webdav_password  TEXT    NOT NULL,   -- encrypted ciphertext
-        rclone_config_name TEXT NOT NULL,
+        torbox_email     TEXT    NOT NULL,
+        torbox_password  TEXT    NOT NULL,          -- AES-256-GCM encrypted
+        access_token     TEXT,
+        refresh_token    TEXT,
+        token_expires_at INTEGER,                   -- unix timestamp (seconds)
         last_synced_at   DATETIME,
-        created_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(torbox_email)
       )
     `
       )
@@ -91,22 +116,25 @@ try {
       CREATE TABLE IF NOT EXISTS remote_list_cache (
         id                 INTEGER PRIMARY KEY AUTOINCREMENT,
         account_id         INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        remote_path        TEXT    NOT NULL,
-        filename           TEXT    NOT NULL,
+        torrent_id         INTEGER NOT NULL,
+        file_id            INTEGER NOT NULL,
+        remote_path        TEXT    NOT NULL,          -- files[].name from TorBox API
+        filename           TEXT    NOT NULL,          -- basename
+        short_name         TEXT,
         size               INTEGER NOT NULL DEFAULT 0,
         mime_type          TEXT,
-        last_modified      DATETIME,
+        torrent_hash       TEXT,
         tmdb_id            INTEGER REFERENCES media(tmdb_id) ON DELETE SET NULL,
         raw_title          TEXT,
         raw_year           TEXT,
-        media_type         TEXT DEFAULT 'other', -- 'movie' | 'tv' | 'other'
+        media_type         TEXT DEFAULT 'other',      -- 'movie' | 'tv' | 'other'
         show_title         TEXT,
         season_number      INTEGER,
         episode_number     INTEGER,
         episode_end_number INTEGER,
         parsed_year        TEXT,
         synced_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(account_id, remote_path)
+        UNIQUE(account_id, torrent_id, file_id)
       )
     `
       )
@@ -146,15 +174,9 @@ try {
       )
       .run();
 
-    // Safe column additions for existing database tables
+    // Safe column additions for existing databases (idempotent)
     try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN backdrop_url TEXT").run(); } catch (_) {}
     try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN overview TEXT").run(); } catch (_) {}
-    try { globalForDb.__domaDb.query("ALTER TABLE remote_list_cache ADD COLUMN media_type TEXT DEFAULT 'other'").run(); } catch (_) {}
-    try { globalForDb.__domaDb.query("ALTER TABLE remote_list_cache ADD COLUMN show_title TEXT").run(); } catch (_) {}
-    try { globalForDb.__domaDb.query("ALTER TABLE remote_list_cache ADD COLUMN season_number INTEGER").run(); } catch (_) {}
-    try { globalForDb.__domaDb.query("ALTER TABLE remote_list_cache ADD COLUMN episode_number INTEGER").run(); } catch (_) {}
-    try { globalForDb.__domaDb.query("ALTER TABLE remote_list_cache ADD COLUMN episode_end_number INTEGER").run(); } catch (_) {}
-    try { globalForDb.__domaDb.query("ALTER TABLE remote_list_cache ADD COLUMN parsed_year TEXT").run(); } catch (_) {}
   }
 
   db = globalForDb.__domaDb;
@@ -208,7 +230,7 @@ export function getAccountsByUserId(userId: number) {
   try {
     return db
       .query(`
-        SELECT a.id, a.webdav_username, a.rclone_config_name, a.last_synced_at, ua.is_active 
+        SELECT a.id, a.torbox_email, a.last_synced_at, ua.is_active 
         FROM accounts a
         JOIN user_accounts ua ON ua.account_id = a.id
         WHERE ua.user_id = ?
@@ -242,7 +264,7 @@ export function verifyUserAccountAccess(userId: number, accountId: number): bool
   }
 }
 
-export function getAccountByWebdavUsername(userId: number, webdavUsername: string) {
+export function getAccountByEmail(userId: number, torboxEmail: string) {
   if (!db) return null;
   try {
     return db
@@ -250,46 +272,59 @@ export function getAccountByWebdavUsername(userId: number, webdavUsername: strin
         SELECT a.*, ua.is_active 
         FROM accounts a
         JOIN user_accounts ua ON ua.account_id = a.id
-        WHERE ua.user_id = ? AND a.webdav_username = ?
+        WHERE ua.user_id = ? AND a.torbox_email = ?
       `)
-      .get(userId, webdavUsername) as any;
+      .get(userId, torboxEmail) as any;
   } catch (e) {
-    console.error("getAccountByWebdavUsername error:", e);
+    console.error("getAccountByEmail error:", e);
     return null;
   }
 }
 
 export function createAccount(
   userId: number,
-  webdavUsername: string,
-  encryptedPassword: string
+  torboxEmail: string,
+  encryptedPassword: string,
+  accessToken?: string,
+  refreshToken?: string,
+  tokenExpiresAt?: number
 ): number | null {
   if (!db) return null;
   try {
     const user = getUserById(userId);
     if (!user) return null;
 
-    let account = db.query("SELECT * FROM accounts WHERE webdav_username = ? LIMIT 1").get(webdavUsername) as any;
+    let account = db.query("SELECT * FROM accounts WHERE torbox_email = ? LIMIT 1").get(torboxEmail) as any;
 
     if (!account) {
-      // Create new global TorBox account
-      const existingCount = db
-        .query("SELECT COUNT(*) as count FROM accounts")
-        .get() as { count: number };
-      const nextIndex = (existingCount?.count || 0) + 1;
-      const rcloneConfigName = `webdoma_torbox_${nextIndex}`;
-
+      // Create new TorBox account
       const result = db
         .query(
-          `INSERT INTO accounts (webdav_username, webdav_password, rclone_config_name)
-           VALUES (?, ?, ?)`
+          `INSERT INTO accounts (torbox_email, torbox_password, access_token, refresh_token, token_expires_at)
+           VALUES (?, ?, ?, ?, ?)`
         )
-        .run(webdavUsername, encryptedPassword, rcloneConfigName);
+        .run(
+          torboxEmail,
+          encryptedPassword,
+          accessToken ?? null,
+          refreshToken ?? null,
+          tokenExpiresAt ?? null
+        );
       
       account = db.query("SELECT * FROM accounts WHERE id = ?").get(result.lastInsertRowid) as any;
     } else {
-      // If the password changed, update it for everyone
-      db.query("UPDATE accounts SET webdav_password = ? WHERE id = ?").run(encryptedPassword, account.id);
+      // Account already exists — update password and tokens
+      db.query(
+        `UPDATE accounts 
+         SET torbox_password = ?, access_token = ?, refresh_token = ?, token_expires_at = ?
+         WHERE id = ?`
+      ).run(
+        encryptedPassword,
+        accessToken ?? null,
+        refreshToken ?? null,
+        tokenExpiresAt ?? null,
+        account.id
+      );
     }
 
     // Link the user to the account 
@@ -303,6 +338,24 @@ export function createAccount(
   } catch (e) {
     console.error("createAccount error:", e);
     return null;
+  }
+}
+
+export function updateAccountTokens(
+  accountId: number,
+  accessToken: string,
+  refreshToken: string,
+  tokenExpiresAt: number
+) {
+  if (!db) return;
+  try {
+    db.query(
+      `UPDATE accounts 
+       SET access_token = ?, refresh_token = ?, token_expires_at = ?
+       WHERE id = ?`
+    ).run(accessToken, refreshToken, tokenExpiresAt, accountId);
+  } catch (e) {
+    console.error("updateAccountTokens error:", e);
   }
 }
 
@@ -382,11 +435,14 @@ export function upsertTvEpisode(
 
 export function upsertRemoteFile(
   accountId: number,
+  torrentId: number,
+  fileId: number,
   remotePath: string,
   filename: string,
+  shortName: string | null,
   size: number,
   mimeType: string,
-  lastModified: string,
+  torrentHash: string | null,
   tmdbId: number | null,
   rawTitle: string | null,
   rawYear: string | null,
@@ -401,13 +457,15 @@ export function upsertRemoteFile(
   try {
     db.query(
       `INSERT INTO remote_list_cache
-         (account_id, remote_path, filename, size, mime_type, last_modified, tmdb_id, raw_title, raw_year, media_type, show_title, season_number, episode_number, episode_end_number, parsed_year, synced_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-       ON CONFLICT(account_id, remote_path) DO UPDATE SET
+         (account_id, torrent_id, file_id, remote_path, filename, short_name, size, mime_type, torrent_hash, tmdb_id, raw_title, raw_year, media_type, show_title, season_number, episode_number, episode_end_number, parsed_year, synced_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(account_id, torrent_id, file_id) DO UPDATE SET
+         remote_path        = excluded.remote_path,
          filename           = excluded.filename,
+         short_name         = excluded.short_name,
          size               = excluded.size,
          mime_type          = excluded.mime_type,
-         last_modified      = excluded.last_modified,
+         torrent_hash       = excluded.torrent_hash,
          tmdb_id            = excluded.tmdb_id,
          raw_title          = excluded.raw_title,
          raw_year           = excluded.raw_year,
@@ -420,11 +478,14 @@ export function upsertRemoteFile(
          synced_at          = CURRENT_TIMESTAMP`
     ).run(
       accountId,
+      torrentId,
+      fileId,
       remotePath,
       filename,
+      shortName,
       size,
       mimeType,
-      lastModified,
+      torrentHash,
       tmdbId,
       rawTitle,
       rawYear,
@@ -448,11 +509,13 @@ export function getFilesForAccount(accountId: number) {
         `SELECT
            r.id,
            r.account_id,
+           r.torrent_id,
+           r.file_id,
            r.remote_path,
            r.filename,
+           r.short_name,
            r.size,
            r.mime_type,
-           r.last_modified,
            r.tmdb_id,
            r.raw_title,
            r.raw_year,
@@ -484,11 +547,13 @@ export function getMoviesForAccount(accountId: number) {
         `SELECT
            r.id,
            r.account_id,
+           r.torrent_id,
+           r.file_id,
            r.remote_path,
            r.filename,
+           r.short_name,
            r.size,
            r.mime_type,
-           r.last_modified,
            r.tmdb_id,
            r.raw_title,
            r.raw_year,
@@ -546,11 +611,13 @@ export function getTvShowDetailsForAccount(accountId: number, showTitle: string)
         `SELECT
            r.id,
            r.account_id,
+           r.torrent_id,
+           r.file_id,
            r.remote_path,
            r.filename,
+           r.short_name,
            r.size,
            r.mime_type,
-           r.last_modified,
            r.tmdb_id,
            r.show_title,
            r.season_number,
@@ -585,9 +652,20 @@ export function getOtherFilesForAccount(accountId: number) {
   try {
     return db
       .query(
-        `SELECT * FROM remote_list_cache
-         WHERE account_id = ? AND (media_type = 'other' OR media_type IS NULL)
-         ORDER BY filename ASC`
+        `SELECT
+           r.id,
+           r.account_id,
+           r.torrent_id,
+           r.file_id,
+           r.remote_path,
+           r.filename,
+           r.short_name,
+           r.size,
+           r.mime_type,
+           r.synced_at
+         FROM remote_list_cache r
+         WHERE r.account_id = ? AND (r.media_type = 'other' OR r.media_type IS NULL)
+         ORDER BY r.filename ASC`
       )
       .all(accountId) as any[];
   } catch (e) {
