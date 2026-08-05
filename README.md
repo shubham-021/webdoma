@@ -4,9 +4,9 @@ A web interface to browse, stream, and download files from your TorBox cloud sto
 
 ## How It Works
 
-- **File Listing and Cache**: Uses rclone to list, display, and cache files from your TorBox storage.
-- **File Actions**: Uses WebDAV direct connections when performing actions on files such as streaming, downloading, or copying stream links.
-- **Local Playback (Aemond)**: Since the web application is typically deployed to a server, it does not launch media players directly. Instead, it communicates with a local daemon (Aemond) running on your machine to open players (mpv, VLC, IINA) locally.
+- **File Listing and Cache**: Uses the native TorBox API to list, display, and cache files directly from your TorBox storage.
+- **File Actions**: Communicates with the TorBox API to retrieve high-speed CDN links when performing actions on files such as streaming, downloading, or copying stream links.
+- **Local Playback (Aemond)**: Since the web application is typically deployed to a server, it does not launch media players directly. Instead, it communicates with a local daemon (Aemond) running on your machine to pass CDN links and open players (mpv, VLC, IINA) locally, supporting advanced features like Syncplay.
 
 ## Getting Started
 
@@ -42,7 +42,6 @@ To run only the web interface locally:
 #### Prerequisites
 
 - Bun runtime (v1.0 or higher)
-- rclone installed on the system and available in your PATH
 
 #### Installation
 
@@ -61,7 +60,7 @@ To run only the web interface locally:
 Create a `.env` file in the root directory based on `.env.example`:
 
 - `SESSION_SECRET`: Key used to encrypt session cookies (minimum 32 characters).
-- `AEMOND_CRED_KEY`: Key used to encrypt credentials sent to the local daemon.
+- `TB_SB_ANON_KEY`: The Supabase GoTrue anon key required for TorBox API authentication.
 - `TMDB_API_KEY`: (Optional) The Movie Database API key to fetch rich metadata (posters, backdrops, and descriptions) for movies and TV shows.
 
 #### Running the Application
