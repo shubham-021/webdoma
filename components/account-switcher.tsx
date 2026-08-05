@@ -114,20 +114,20 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
           <Button
             variant="outline"
             role="combobox"
-            className="w-[200px] justify-between bg-card hover:bg-card/80 border-border/50 transition-all duration-200 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="w-50 justify-between bg-card hover:bg-card/80 border-border/50 transition-all duration-200 focus-visible:ring-0 focus-visible:ring-offset-0"
           >
             <div className="flex items-center gap-2 truncate">
               <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                 <User size={12} className="text-primary" />
               </div>
               <span className="truncate text-sm">
-                {activeAccount?.webdav_username}
+                {activeAccount?.torbox_email}
               </span>
             </div>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[240px] outline-none">
+        <DropdownMenuContent align="end" className="w-60 outline-none">
           {accounts.map((account) => (
             <DropdownMenuItem
               key={account.id}
@@ -136,13 +136,12 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
               disabled={isSyncing !== null}
             >
               <div className="flex items-center gap-2 truncate flex-1">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                  account.is_active ? "bg-green-100 dark:bg-green-950" : "bg-gray-100"
-                }`}>
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${account.is_active ? "bg-green-100 dark:bg-green-950" : "bg-gray-100"
+                  }`}>
                   <User size={12} className={account.is_active ? "text-green-600 dark:text-green-400" : "text-gray-400"} />
                 </div>
                 <span className="truncate">
-                  {account.webdav_username}
+                  {account.torbox_email}
                 </span>
               </div>
               <div className="flex items-center gap-1">

@@ -31,28 +31,29 @@ export function PlayerSelector({
       });
 
       try {
-        const res = await fetch("/api/player/launch", {
+        const res = await fetch("http://localhost:9070/play", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filePath: "/test", player: value, test: true }),
+          body: JSON.stringify({ player: value, url: "https://test-url.webdoma.local/test.mp4" }),
         });
 
         if (res.ok) {
-          toast.success(`${value.toUpperCase()} launched!`);
+          toast.success(`${value.toUpperCase()} launched via local daemon!`);
         } else {
-          const data = await res.json();
           toast.error(`Failed to launch ${value}`, {
-            description: data.error || "Make sure the player is installed and in your PATH.",
+            description: "Aemond returned an error status.",
           });
         }
       } catch {
-        toast.error("Network error");
+        toast.error("Network error", {
+          description: "Ensure WebDoMa Aemond is running on port 9070 on your machine.",
+        });
       }
       return;
     }
 
     // For protocol-handler players: use client-side approach
-    const testURL = `${window.location.origin}/api/stream/test.mp4?token=test`;
+    const testURL = "https://test-url.webdoma.local/test.mp4";
     const playerURL = buildPlayerURL(value, testURL, customTemplate);
 
     const link = document.createElement("a");

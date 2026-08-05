@@ -67,7 +67,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
     }
 
     setIsSyncing(true);
-    toast.info("Syncing WebDAV remote...");
+    toast.info("Syncing TorBox remote...");
     try {
       const res = await fetch("/api/sync", {
         method: "POST",
@@ -155,7 +155,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
             onClick={handleSync}
             disabled={isSyncing || !hasAccounts}
             className="h-9 gap-1.5 text-xs font-semibold rounded-xl shrink-0 cursor-pointer"
-            title="Sync WebDAV files & fetch metadata"
+            title="Sync TorBox files & fetch metadata"
           >
             <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
             <span>{isSyncing ? "Syncing..." : "Sync Remote"}</span>

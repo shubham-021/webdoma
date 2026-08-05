@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/dialog";
 
 const addAccountSchema = z.object({
-  webdav_username: z.string().min(1, "TorBox email or 'torbox' is required"),
-  webdav_password: z.string().min(1, "API Key is required"),
+  torbox_email: z.string().min(1, "TorBox email is required"),
+  torbox_password: z.string().min(1, "TorBox password is required"),
 });
 
 interface AddAccountFormProps {
@@ -30,8 +30,8 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
   const [error, setError] = useState<string | null>(null);
 
   // Form fields
-  const [webdavUsername, setWebdavUsername] = useState("");
-  const [webdavPassword, setWebdavPassword] = useState("");
+  const [torboxEmail, setTorboxEmail] = useState("");
+  const [torboxPassword, setTorboxPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +40,8 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
 
     try {
       const body = {
-        webdav_username: webdavUsername,
-        webdav_password: webdavPassword,
+        torbox_email: torboxEmail,
+        torbox_password: torboxPassword,
       };
 
       const parsed = addAccountSchema.safeParse(body);
@@ -65,8 +65,8 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
       }
 
       toast.success("TorBox account added & synced successfully!");
-      setWebdavUsername("");
-      setWebdavPassword("");
+      setTorboxEmail("");
+      setTorboxPassword("");
       onOpenChange(false);
       if (onSuccess) onSuccess(data.account);
     } catch {
@@ -78,34 +78,26 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-card border border-border/50 shadow-2xl">
+      <DialogContent className="sm:max-w-106.25 p-0 overflow-hidden bg-card border border-border/50 shadow-2xl">
         <form onSubmit={handleSubmit}>
           <DialogHeader className="p-6 border-b border-border/50 bg-card">
             <DialogTitle className="text-lg font-semibold">Add TorBox Account</DialogTitle>
             <CardDescription className="text-sm mt-1">
-              Enter your TorBox WebDAV credentials. Find your API key at{" "}
-              <a
-                href="https://torbox.app/settings"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                torbox.app/settings
-              </a>
+              Enter your TorBox account credentials. These will be securely encrypted.
             </CardDescription>
           </DialogHeader>
 
           <CardContent className="p-6 space-y-4">
             <div className="space-y-2">
-              <label htmlFor="webdav-username" className="text-sm font-medium">
-                WebDAV Username (Email)
+              <label htmlFor="torbox-email" className="text-sm font-medium">
+                TorBox Email
               </label>
               <Input
-                id="webdav-username"
+                id="torbox-email"
                 type="text"
-                placeholder="your@email.com or 'torbox'"
-                value={webdavUsername}
-                onChange={(e) => setWebdavUsername(e.target.value)}
+                placeholder="your@email.com"
+                value={torboxEmail}
+                onChange={(e) => setTorboxEmail(e.target.value)}
                 disabled={isLoading}
                 autoComplete="email"
                 required
@@ -113,15 +105,15 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="webdav-password" className="text-sm font-medium">
-                WebDAV Password (API Key)
+              <label htmlFor="torbox-password" className="text-sm font-medium">
+                TorBox Password
               </label>
               <Input
-                id="webdav-password"
+                id="torbox-password"
                 type="password"
-                placeholder="Paste your TorBox API key"
-                value={webdavPassword}
-                onChange={(e) => setWebdavPassword(e.target.value)}
+                placeholder="Your TorBox password"
+                value={torboxPassword}
+                onChange={(e) => setTorboxPassword(e.target.value)}
                 disabled={isLoading}
                 autoComplete="off"
                 required
