@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface Episode {
   id: number;
+  account_id: number;
   torrent_id: number;
   file_id: number;
   remote_path: string;
@@ -37,7 +38,6 @@ interface ShowInfo {
 
 interface TvShowDetailProps {
   showTitle: string;
-  activeAccountId: number | null;
   playerProtocol: string;
   onBack: () => void;
 }
@@ -60,7 +60,7 @@ async function fetchCdnLink(torrentId: number, fileId: number, accountId: number
   }
 }
 
-export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBack }: TvShowDetailProps) {
+export function TvShowDetail({ showTitle, playerProtocol, onBack }: TvShowDetailProps) {
   const [showInfo, setShowInfo] = useState<ShowInfo | null>(null);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
@@ -72,8 +72,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
       setIsLoading(true);
       setError(null);
       try {
-        let url = `/api/library/tv/${encodeURIComponent(showTitle)}`;
-        if (activeAccountId) url += `?account_id=${activeAccountId}`;
+        const url = `/api/library/tv/${encodeURIComponent(showTitle)}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -92,11 +91,10 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
     }
 
     loadShowDetail();
-  }, [showTitle, activeAccountId]);
+  }, [showTitle]);
 
   const handleCopyLink = useCallback(async (ep: Episode) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
     if (!cdnUrl) return;
 
     try {
@@ -105,11 +103,10 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
     } catch {
       toast.error("Failed to copy link");
     }
-  }, [activeAccountId]);
+  }, []);
 
   const handleStream = useCallback(async (ep: Episode) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
     if (!cdnUrl) return;
 
     if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
@@ -145,19 +142,18 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
     toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
       description: "CDN stream active."
     });
-  }, [activeAccountId, playerProtocol]);
+  }, [playerProtocol]);
 
   const handleDownload = useCallback(async (ep: Episode) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
     if (!cdnUrl) return;
     window.open(cdnUrl, "_blank");
     toast.success("Download started");
-  }, [activeAccountId]);
+  }, []);
 
   const handleSyncplay = useCallback(async (ep: Episode) => {
-    if (!activeAccountId || !LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
-    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, activeAccountId);
+    if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
+    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
     if (!cdnUrl) return;
 
     try {
@@ -180,7 +176,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
         description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
       });
     }
-  }, [activeAccountId, playerProtocol]);
+  }, [playerProtocol]);
 
   if (isLoading) {
     return (

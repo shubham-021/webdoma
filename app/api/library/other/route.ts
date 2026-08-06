@@ -1,32 +1,18 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { getOtherFilesForAccount, getAccountsByUserId } from "@/lib/db";
+import { getOtherFilesForUser } from "@/lib/db";
 import { formatBytes } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const session = await getSession();
     if (!session.userId) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const accountIdParam = searchParams.get("account_id");
-
-    const accounts = getAccountsByUserId(session.userId);
-    if (accounts.length === 0) {
-      return NextResponse.json({ items: [] });
-    }
-
-    let activeAccount = accounts[0];
-    if (accountIdParam) {
-      const requested = accounts.find((a) => a.id === parseInt(accountIdParam, 10));
-      if (requested) activeAccount = requested;
-    }
-
-    const rawFiles = getOtherFilesForAccount(activeAccount.id);
+    const rawFiles = getOtherFilesForUser(session.userId);
 
     const items = rawFiles.map((row) => ({
       id: row.id,

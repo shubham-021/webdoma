@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { getTvShowDetailsForAccount, getAccountsByUserId } from "@/lib/db";
+import { getTvShowDetailsForUser } from "@/lib/db";
 import { formatBytes } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -18,21 +18,7 @@ export async function GET(
     const { showTitle: rawShowTitle } = await params;
     const showTitle = decodeURIComponent(rawShowTitle);
 
-    const { searchParams } = new URL(request.url);
-    const accountIdParam = searchParams.get("account_id");
-
-    const accounts = getAccountsByUserId(session.userId);
-    if (accounts.length === 0) {
-      return NextResponse.json({ error: "No accounts found" }, { status: 404 });
-    }
-
-    let activeAccount = accounts[0];
-    if (accountIdParam) {
-      const requested = accounts.find((a) => a.id === parseInt(accountIdParam, 10));
-      if (requested) activeAccount = requested;
-    }
-
-    const rawEpisodes = getTvShowDetailsForAccount(activeAccount.id, showTitle);
+    const rawEpisodes = getTvShowDetailsForUser(session.userId, showTitle);
     if (!rawEpisodes || rawEpisodes.length === 0) {
       return NextResponse.json({ error: "Show not found" }, { status: 404 });
     }

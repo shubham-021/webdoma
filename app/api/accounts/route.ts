@@ -5,6 +5,7 @@ import {
   getAccountByEmail,
   createAccount,
   getAccountsByUserId,
+  deleteAccount,
   getDb,
 } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
@@ -110,6 +111,43 @@ export async function POST(request: Request) {
     console.error("Add account error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to add account. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getSession();
+    if (!session.userId) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const accountIdParam = searchParams.get("account_id");
+
+    if (!accountIdParam) {
+      return NextResponse.json(
+        { success: false, error: "account_id is required" },
+        { status: 400 }
+      );
+    }
+
+    const accountId = parseInt(accountIdParam, 10);
+    const deleted = deleteAccount(session.userId, accountId);
+
+    if (!deleted) {
+      return NextResponse.json(
+        { success: false, error: "Account not found or access denied" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to delete account" },
       { status: 500 }
     );
   }
