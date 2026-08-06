@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { Sidebar } from "@/components/sidebar";
 import { FileBrowser } from "@/components/file-browser";
 import { AccountSwitcher } from "@/components/account-switcher";
+import { TorrentChecker } from "@/components/torrent-checker";
 import { getAccountsByUserId } from "@/lib/db";
 
 export default async function HomePage() {
@@ -12,7 +13,6 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  // Get TorBox accounts from database
   const accounts = getAccountsByUserId(session.userId);
 
   // Determine active account from URL or use first account
@@ -32,6 +32,7 @@ export default async function HomePage() {
         </div>
         <FileBrowser playerProtocol={session.playerProtocol || "vlc"} hasAccounts={accounts.length > 0} />
       </main>
+      <TorrentChecker hasAccounts={accounts.length > 0} />
     </div>
   );
 }

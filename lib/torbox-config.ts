@@ -1,27 +1,15 @@
-/**
- * lib/torbox-config.ts
- *
- * Single source of truth for all TorBox API endpoints and config constants.
- * If TorBox changes any URL, only this file needs updating.
- */
-
-// ── TorBox Endpoints ──────────────────────────────────────────────────────────
+// TorBox Endpoints
 
 export const TORBOX_ENDPOINTS = {
-  /** Supabase GoTrue – password login */
   AUTH_LOGIN: "https://db.torbox.app/auth/v1/token?grant_type=password",
-
-  /** Supabase GoTrue – refresh token */
   AUTH_REFRESH: "https://db.torbox.app/auth/v1/token?grant_type=refresh_token",
-
-  /** List all user torrents with their files */
   TORRENTS_MYLIST: "https://api.torbox.app/v1/api/torrents/mylist",
-
-  /** Request a CDN download link for a specific file */
   TORRENTS_REQUEST_DL: "https://api.torbox.app/v1/api/torrents/requestdl",
+  TORRENTS_CHECK_CACHED: "https://api.torbox.app/v1/api/torrents/checkcached",
+  TORRENTS_CREATE: "https://api.torbox.app/v1/api/torrents/createtorrent",
 } as const;
 
-// ── Auth Config ───────────────────────────────────────────────────────────────
+// Auth Config
 
 /**
  * Returns the Supabase anon/public key required for all auth endpoints.
@@ -41,11 +29,9 @@ export function getTbSbAnonKey(): string {
  */
 export const TOKEN_REFRESH_BUFFER_S = 60;
 
-// ── Sync Config ───────────────────────────────────────────────────────────────
-
 /**
  * Minimum file size in bytes to include during sync.
  * Files smaller than this are skipped (typically non-media files).
  * Default: 250 MB
  */
-export const MIN_FILE_SIZE_BYTES = 250 * 1024 * 1024; // 250 MB
+export const MIN_FILE_SIZE_BYTES = 250 * 1024 * 1024;

@@ -12,6 +12,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { AddAccountForm } from "@/components/add-account-form";
 import { useFileStore } from "@/lib/store";
 import type { TorBoxAccount } from "@/lib/types";
@@ -28,6 +36,7 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
 
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState<number | null>(null);
+  const [pendingSyncAccountId, setPendingSyncAccountId] = useState<number | null>(null);
 
   // Sync activeAccountId from URL param to store initially or when it changes
   useEffect(() => {
@@ -81,6 +90,18 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
     }
   };
 
+  const handleSyncClick = (e: React.MouseEvent, accountId: number) => {
+    e.stopPropagation();
+    setPendingSyncAccountId(accountId);
+  };
+
+  const handleSyncConfirm = () => {
+    if (pendingSyncAccountId !== null) {
+      handleSyncAccount(pendingSyncAccountId);
+      setPendingSyncAccountId(null);
+    }
+  };
+
   const handleAddAccountSuccess = (newAccount?: any) => {
     setIsAddAccountOpen(false);
     if (newAccount?.id) {
@@ -89,6 +110,10 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
       window.location.reload();
     }
   };
+
+  const pendingAccount = pendingSyncAccountId !== null
+    ? accounts.find((a) => a.id === pendingSyncAccountId)
+    : null;
 
   // No accounts yet - show add button
   if (accounts.length === 0) {
@@ -152,10 +177,7 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSyncAccount(account.id);
-                    }}
+                    onClick={(e) => handleSyncClick(e, account.id)}
                     disabled={isSyncing !== null}
                     title="Sync this account"
                   >
@@ -181,6 +203,38 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
       </DropdownMenu>
 
       <AddAccountForm open={isAddAccountOpen} onOpenChange={setIsAddAccountOpen} onSuccess={handleAddAccountSuccess} />
+
+      {/* Sync Confirmation Dialog */}
+      <Dialog open={pendingSyncAccountId !== null} onOpenChange={(open) => !open && setPendingSyncAccountId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw size={18} className="text-primary" />
+              Sync Account?
+            </DialogTitle>
+            <DialogDescription>
+              This will <span className="font-semibold text-foreground">clear all stored file data</span> for{" "}
+              <span className="font-semibold text-foreground">{pendingAccount?.torbox_email}</span>{" "}
+              and re-fetch everything fresh from TorBox. All files will be re-parsed and metadata will be fetched from TMDB. This may take a moment.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setPendingSyncAccountId(null)}
+              className="rounded-xl cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSyncConfirm}
+              className="rounded-xl cursor-pointer"
+            >
+              Yes, Sync Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

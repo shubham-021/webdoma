@@ -9,7 +9,6 @@ import {
   DOCUMENT_EXTENSIONS,
 } from "./constants";
 
-// Tailwind class merge utility (used by shadcn/ui components)
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

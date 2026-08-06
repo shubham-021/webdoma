@@ -1,9 +1,17 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Film, Tv, FolderOpen, RefreshCw, Search, ArrowLeft } from "lucide-react";
+import { Film, Tv, FolderOpen, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { MoviesGrid } from "@/components/movies-grid";
 import { TvShowsGrid } from "@/components/tv-shows-grid";
 import { TvShowDetail } from "@/components/tv-show-detail";
@@ -29,6 +37,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -60,7 +69,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
     loadData();
   }, [loadData]);
 
-  const handleSync = async () => {
+  const doSync = useCallback(async () => {
     if (!activeAccountId) {
       toast.error("No active account selected");
       return;
@@ -84,6 +93,25 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
     } finally {
       setIsSyncing(false);
     }
+  }, [activeAccountId, loadData]);
+
+  // Lightweight refresh when files are inserted inline (no full TorBox API re-sync)
+  useEffect(() => {
+    const handleFilesUpdated = () => {
+      loadData();
+    };
+    window.addEventListener("torrent-files-updated", handleFilesUpdated);
+    return () => window.removeEventListener("torrent-files-updated", handleFilesUpdated);
+  }, [loadData]);
+
+  // Manual sync (with confirmation)
+  const handleSyncClick = () => {
+    setShowSyncConfirm(true);
+  };
+
+  const handleSyncConfirm = () => {
+    setShowSyncConfirm(false);
+    doSync();
   };
 
   return (
@@ -152,7 +180,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleSync}
+            onClick={handleSyncClick}
             disabled={isSyncing || !hasAccounts}
             className="h-9 gap-1.5 text-xs font-semibold rounded-xl shrink-0 cursor-pointer"
             title="Sync TorBox files & fetch metadata"
@@ -197,6 +225,37 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
           />
         )}
       </div>
+
+      {/* Sync Confirmation Dialog */}
+      <Dialog open={showSyncConfirm} onOpenChange={setShowSyncConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw size={18} className="text-primary" />
+              Sync Remote Files?
+            </DialogTitle>
+            <DialogDescription>
+              This will <span className="font-semibold text-foreground">clear all stored file data</span> for this account and re-fetch everything fresh from TorBox. All files will be re-parsed and metadata will be fetched from TMDB. This may take a moment depending on how many files you have.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowSyncConfirm(false)}
+              className="rounded-xl cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSyncConfirm}
+              className="rounded-xl cursor-pointer"
+            >
+              Yes, Sync Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

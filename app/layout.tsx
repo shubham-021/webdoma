@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DoMa Web — TorBox File Manager",
+  title: "WebDoMa",
   description:
     "Browse, stream, and download files from your TorBox cloud storage. Self-hosted, secure, and fast.",
 };

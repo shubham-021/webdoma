@@ -1,12 +1,3 @@
-/**
- * lib/torbox.ts
- *
- * TorBox API client — handles authentication, token management,
- * torrent listing, and CDN link generation.
- *
- * Replaces both lib/rclone.ts and lib/webdav.ts.
- */
-
 import {
   TORBOX_ENDPOINTS,
   getTbSbAnonKey,
@@ -18,7 +9,7 @@ import {
   updateAccountTokens,
 } from "./db";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Types
 
 export interface TorBoxAuthResponse {
   access_token: string;
@@ -76,7 +67,7 @@ export interface TorBoxCdnResponse {
   data: string; // CDN URL
 }
 
-// ── Retry Helper ──────────────────────────────────────────────────────────────
+// Retry Helper
 
 async function withRetry<T>(
   fn: () => Promise<T>,
@@ -103,12 +94,9 @@ async function withRetry<T>(
   }
 }
 
-// ── Authentication ────────────────────────────────────────────────────────────
+// Authentication 
 
-/**
- * Authenticate with TorBox using email and password.
- * Calls the Supabase GoTrue password grant endpoint.
- */
+// Authenticate with TorBox using email and password.
 export async function authenticateTorBox(
   email: string,
   password: string
@@ -136,9 +124,7 @@ export async function authenticateTorBox(
   return res.json();
 }
 
-/**
- * Refresh an expired access token using a refresh token.
- */
+// Refresh an expired access token using a refresh token.
 export async function refreshTorBoxToken(
   refreshToken: string
 ): Promise<TorBoxAuthResponse> {
@@ -164,7 +150,7 @@ export async function refreshTorBoxToken(
   return res.json();
 }
 
-// ── Token Management ──────────────────────────────────────────────────────────
+// Token Management 
 
 /**
  * Get a valid access token for the given account.
@@ -230,11 +216,7 @@ export async function getValidAccessToken(accountId: number): Promise<string> {
   return authResult.access_token;
 }
 
-// ── Torrent Data ──────────────────────────────────────────────────────────────
-
-/**
- * Fetch all torrents and their files for the authenticated user.
- */
+// Torrent Data 
 export async function fetchTorrentList(
   accessToken: string
 ): Promise<TorBoxTorrent[]> {
@@ -261,12 +243,7 @@ export async function fetchTorrentList(
   });
 }
 
-// ── CDN Link Generation ───────────────────────────────────────────────────────
-
-/**
- * Request a CDN download link for a specific file within a torrent.
- * The returned URL can be used directly for streaming/downloading.
- */
+// CDN Link Generation
 export async function requestCdnLink(
   torrentId: number,
   fileId: number,
@@ -295,3 +272,129 @@ export async function requestCdnLink(
     return body.data;
   });
 }
+
+// Torrent Cache Check
+
+export interface CachedTorrentFile {
+  id: number;
+  name: string;
+  size: number;
+  opensubtitles_hash: string | null;
+  short_name: string;
+  mimetype: string;
+}
+
+export interface CachedTorrentInfo {
+  name: string;
+  size: number;
+  hash: string;
+  files: CachedTorrentFile[];
+}
+
+export interface CheckCachedResponse {
+  success: boolean;
+  error: string | null;
+  detail: string;
+  data: Record<string, CachedTorrentInfo>;
+}
+
+/** Check if a single torrent hash is cached on TorBox. */
+export async function checkTorrentCached(
+  hash: string,
+  accessToken: string
+): Promise<CheckCachedResponse> {
+  return withRetry(async () => {
+    const url = new URL(TORBOX_ENDPOINTS.TORRENTS_CHECK_CACHED);
+    url.searchParams.set("hash", hash);
+    url.searchParams.set("format", "object");
+    url.searchParams.set("list_files", "true");
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!res.ok) {
+      const err = new Error(`Failed to check torrent cache (${res.status})`);
+      (err as any).status = res.status;
+      throw err;
+    }
+
+    return res.json();
+  });
+}
+
+/** Check if multiple torrent hashes are cached on TorBox (bulk). */
+export async function checkTorrentsCachedBulk(
+  hashes: string[],
+  accessToken: string
+): Promise<CheckCachedResponse> {
+  return withRetry(async () => {
+    const url = new URL(TORBOX_ENDPOINTS.TORRENTS_CHECK_CACHED);
+    url.searchParams.set("format", "object");
+    url.searchParams.set("list_files", "true");
+
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ hashes }),
+    });
+
+    if (!res.ok) {
+      const err = new Error(`Failed to check torrent cache (${res.status})`);
+      (err as any).status = res.status;
+      throw err;
+    }
+
+    return res.json();
+  });
+}
+
+// Torrent Creation
+
+export interface CreateTorrentResponse {
+  success: boolean;
+  error: string | null;
+  detail: string;
+  data: {
+    hash: string;
+    torrent_id: number;
+    auth_id: string;
+  };
+}
+
+/** Add a torrent to TorBox account using a magnet link. */
+export async function createTorrent(
+  magnetLink: string,
+  accessToken: string,
+  addOnlyIfCached: boolean = true
+): Promise<CreateTorrentResponse> {
+  return withRetry(async () => {
+    const formData = new FormData();
+    formData.append("magnet", magnetLink);
+    if (addOnlyIfCached) {
+      formData.append("add_only_if_cached", "true");
+    }
+
+    const res = await fetch(TORBOX_ENDPOINTS.TORRENTS_CREATE, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = new Error(`Failed to create torrent (${res.status})`);
+      (err as any).status = res.status;
+      throw err;
+    }
+
+    return res.json();
+  });
+}
+
