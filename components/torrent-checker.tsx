@@ -257,16 +257,11 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
       {/* Floating Action Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl font-semibold text-sm shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_32px_rgba(120,80,255,0.35)] active:scale-95 cursor-pointer"
-        style={{
-          background: "linear-gradient(135deg, oklch(0.55 0.15 270), oklch(0.45 0.18 290))",
-          color: "oklch(0.97 0 0)",
-          border: "1px solid oklch(0.6 0.12 270 / 0.3)",
-        }}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 rounded-full font-medium text-sm shadow-lg border border-border/50 bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-300 hover:shadow-xl active:scale-95 cursor-pointer"
         id="torrent-checker-fab"
       >
         <Magnet size={18} />
-        <span>Check Torrent</span>
+        <span>Add / Check Torrent</span>
       </button>
 
       {/* Dialog */}
