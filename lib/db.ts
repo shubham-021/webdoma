@@ -579,21 +579,36 @@ export function getTvShowsForAccount(accountId: number) {
     return db
       .query(
         `SELECT
-           COALESCE(r.show_title, m.title, r.raw_title) AS show_title,
            m.tmdb_id,
+           m.title AS show_title,
            m.poster_url,
            m.backdrop_url,
            m.overview,
            COUNT(DISTINCT r.season_number) AS season_count,
            COUNT(r.id) AS episode_count,
            MIN(r.parsed_year) AS start_year
-         FROM remote_list_cache r
-         LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
+         FROM media m
+         JOIN remote_list_cache r ON r.tmdb_id = m.tmdb_id
          WHERE r.account_id = ? AND r.media_type = 'tv'
-         GROUP BY COALESCE(r.show_title, m.title, r.raw_title)
-         ORDER BY show_title ASC`
+         GROUP BY m.tmdb_id
+
+         UNION ALL
+
+         SELECT
+           NULL AS tmdb_id,
+           COALESCE(r.show_title, r.raw_title) AS show_title,
+           NULL AS poster_url,
+           NULL AS backdrop_url,
+           NULL AS overview,
+           COUNT(DISTINCT r.season_number) AS season_count,
+           COUNT(r.id) AS episode_count,
+           MIN(r.parsed_year) AS start_year
+         FROM remote_list_cache r
+         WHERE r.account_id = ? AND r.media_type = 'tv' AND r.tmdb_id IS NULL
+         GROUP BY LOWER(COALESCE(r.show_title, r.raw_title))
+         ORDER BY show_title COLLATE NOCASE ASC`
       )
-      .all(accountId) as any[];
+      .all(accountId, accountId) as any[];
   } catch (e) {
     console.error("getTvShowsForAccount error:", e);
     return [];
@@ -632,7 +647,7 @@ export function getTvShowDetailsForAccount(accountId: number, showTitle: string)
          FROM remote_list_cache r
          LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
          LEFT JOIN tv_episodes e ON (r.tmdb_id = e.show_tmdb_id AND r.season_number = e.season_number AND r.episode_number = e.episode_number)
-         WHERE r.account_id = ? AND r.media_type = 'tv' AND LOWER(r.show_title) = LOWER(?)
+         WHERE r.account_id = ? AND r.media_type = 'tv' AND LOWER(COALESCE(m.title, r.show_title, r.raw_title)) = LOWER(?)
          ORDER BY r.season_number ASC, r.episode_number ASC`
       )
       .all(accountId, showTitle) as any[];
@@ -726,22 +741,38 @@ export function getTvShowsForUser(userId: number) {
     return db
       .query(
         `SELECT
-           COALESCE(m.title, r.show_title, r.raw_title) AS show_title,
            m.tmdb_id,
+           m.title AS show_title,
            m.poster_url,
            m.backdrop_url,
            m.overview,
            COUNT(DISTINCT r.season_number) AS season_count,
            COUNT(r.id) AS episode_count,
            MIN(r.parsed_year) AS start_year
+         FROM media m
+         JOIN remote_list_cache r ON r.tmdb_id = m.tmdb_id
+         JOIN user_accounts ua ON r.account_id = ua.account_id
+         WHERE ua.user_id = ? AND r.media_type = 'tv'
+         GROUP BY m.tmdb_id
+
+         UNION ALL
+
+         SELECT
+           NULL AS tmdb_id,
+           COALESCE(r.show_title, r.raw_title) AS show_title,
+           NULL AS poster_url,
+           NULL AS backdrop_url,
+           NULL AS overview,
+           COUNT(DISTINCT r.season_number) AS season_count,
+           COUNT(r.id) AS episode_count,
+           MIN(r.parsed_year) AS start_year
          FROM remote_list_cache r
          JOIN user_accounts ua ON r.account_id = ua.account_id
-         LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
-         WHERE ua.user_id = ? AND r.media_type = 'tv'
-         GROUP BY COALESCE(m.title, r.show_title, r.raw_title) COLLATE NOCASE
+         WHERE ua.user_id = ? AND r.media_type = 'tv' AND r.tmdb_id IS NULL
+         GROUP BY LOWER(COALESCE(r.show_title, r.raw_title))
          ORDER BY show_title COLLATE NOCASE ASC`
       )
-      .all(userId) as any[];
+      .all(userId, userId) as any[];
   } catch (e) {
     console.error("getTvShowsForUser error:", e);
     return [];
@@ -781,7 +812,7 @@ export function getTvShowDetailsForUser(userId: number, showTitle: string) {
          JOIN user_accounts ua ON r.account_id = ua.account_id
          LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
          LEFT JOIN tv_episodes e ON (r.tmdb_id = e.show_tmdb_id AND r.season_number = e.season_number AND r.episode_number = e.episode_number)
-         WHERE ua.user_id = ? AND r.media_type = 'tv' AND LOWER(r.show_title) = LOWER(?)
+         WHERE ua.user_id = ? AND r.media_type = 'tv' AND LOWER(COALESCE(m.title, r.show_title, r.raw_title)) = LOWER(?)
          ORDER BY r.season_number ASC, r.episode_number ASC`
       )
       .all(userId, showTitle) as any[];
