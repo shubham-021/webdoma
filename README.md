@@ -2,9 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
-  <img src="https://img.shields.io/badge/React-blue?style=for-the-badge&logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Bun-black?style=for-the-badge&logo=bun&logoColor=white" alt="Bun" />
-  <img src="https://img.shields.io/badge/Tailwind-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
 </p>
 
 WebDoMa is a high-performance web interface designed for browsing, streaming, and downloading files directly from your TorBox cloud storage. It works in tandem with a specialized local daemon to bypass browser constraints, handing off media streams directly to native desktop players for an optimal, high-quality playback experience.
