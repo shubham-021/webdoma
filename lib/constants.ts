@@ -1,6 +1,6 @@
 import type { PlayerConfig } from "./types";
 
-// --- File Extension Sets ---
+// File Extension Sets
 
 export const VIDEO_EXTENSIONS = new Set([
   "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v",
@@ -27,7 +27,7 @@ export const DOCUMENT_EXTENSIONS = new Set([
   "pdf", "doc", "docx", "txt", "rtf", "odt", "xls", "xlsx", "ppt", "pptx",
 ]);
 
-// --- Player Configurations ---
+// Player Configurations
 
 export const PLAYERS: PlayerConfig[] = [
   {
@@ -68,6 +68,6 @@ export const PLAYERS: PlayerConfig[] = [
   },
 ];
 
-// --- Defaults ---
+// Defaults
 
 export const DEFAULT_PLAYER_PROTOCOL = "vlc";

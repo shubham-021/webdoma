@@ -1,13 +1,10 @@
-// @ts-ignore
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 
-// Ensure data directory exists before initializing database
 if (!existsSync("./data")) {
   mkdirSync("./data", { recursive: true });
 }
 
-// Initialize database
 let db: any;
 
 const globalForDb = globalThis as unknown as { __domaDb: any };
@@ -21,7 +18,7 @@ try {
     globalForDb.__domaDb.query("PRAGMA busy_timeout = 5000").run();
     globalForDb.__domaDb.query("PRAGMA foreign_keys = ON").run();
 
-    // ── Schema Migration: detect old schema and migrate ───────────────────────
+    // Schema Migration: detect old schema and migrate 
     // Check if accounts table has old webdav columns
     try {
       const tableInfo = globalForDb.__domaDb
@@ -30,7 +27,7 @@ try {
       const columnNames = tableInfo.map((c) => c.name);
 
       if (columnNames.includes("webdav_username")) {
-        // Old schema detected — drop and recreate accounts + remote_list_cache
+        // Old schema detected - drop and recreate accounts + remote_list_cache
         console.log("[DB Migration] Old WebDAV schema detected — migrating to TorBox API schema...");
         globalForDb.__domaDb.query("DROP TABLE IF EXISTS user_accounts").run();
         globalForDb.__domaDb.query("DROP TABLE IF EXISTS remote_list_cache").run();
@@ -43,7 +40,7 @@ try {
       // No existing accounts table — fresh install
     }
 
-    // ── users ──────────────────────────────────────────────────────────────────
+    // users
     globalForDb.__domaDb
       .query(
         `
@@ -57,7 +54,7 @@ try {
       )
       .run();
 
-    // ── accounts (TorBox accounts) ──────────────────────────────────────────
+    // accounts (TorBox accounts)
     globalForDb.__domaDb
       .query(
         `
@@ -76,7 +73,7 @@ try {
       )
       .run();
 
-    // ── user_accounts (Junction Table) ──────────────────────────────────────────
+    // user_accounts (Junction Table)
     globalForDb.__domaDb
       .query(
         `
@@ -91,7 +88,7 @@ try {
       )
       .run();
 
-    // ── media ──────────────────────────────────────────────────────────────────
+    // media
     globalForDb.__domaDb
       .query(
         `
@@ -109,7 +106,7 @@ try {
       )
       .run();
 
-    // ── remote_list_cache ──────────────────────────────────────────────────────
+    // remote_list_cache
     globalForDb.__domaDb
       .query(
         `
@@ -140,7 +137,7 @@ try {
       )
       .run();
 
-    // ── tv_episodes ────────────────────────────────────────────────────────────
+    // tv_episodes
     globalForDb.__domaDb
       .query(
         `
@@ -159,7 +156,7 @@ try {
       )
       .run();
 
-    // ── metadata_cache (legacy) ────────────────────────────────────────────────
+    // metadata_cache (legacy)
     globalForDb.__domaDb
       .query(
         `
@@ -175,8 +172,8 @@ try {
       .run();
 
     // Safe column additions for existing databases (idempotent)
-    try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN backdrop_url TEXT").run(); } catch (_) {}
-    try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN overview TEXT").run(); } catch (_) {}
+    try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN backdrop_url TEXT").run(); } catch (_) { }
+    try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN overview TEXT").run(); } catch (_) { }
   }
 
   db = globalForDb.__domaDb;
@@ -188,7 +185,7 @@ export function getDb() {
   return db;
 }
 
-// ── users ──────────────────────────────────────────────────────────────────────
+// users
 
 export function getUserByUsername(username: string) {
   if (!db) return null;
@@ -223,7 +220,7 @@ export function createUser(username: string, hashedPassword: string): number | n
   }
 }
 
-// ── accounts ──────────────────────────────────────────────────────────────────
+// accounts
 
 export function getAccountsByUserId(userId: number) {
   if (!db) return [];
@@ -310,7 +307,7 @@ export function createAccount(
           refreshToken ?? null,
           tokenExpiresAt ?? null
         );
-      
+
       account = db.query("SELECT * FROM accounts WHERE id = ?").get(result.lastInsertRowid) as any;
     } else {
       // Account already exists — update password and tokens
@@ -368,7 +365,7 @@ export function updateAccountSyncTime(accountId: number) {
   }
 }
 
-// ── media & tv_episodes ────────────────────────────────────────────────────────
+// media & tv_episodes
 
 export function getMediaByTmdbId(tmdbId: number) {
   if (!db) return null;
@@ -431,7 +428,7 @@ export function upsertTvEpisode(
   }
 }
 
-// ── remote_list_cache ──────────────────────────────────────────────────────────
+// remote_list_cache
 
 export function upsertRemoteFile(
   accountId: number,
@@ -827,17 +824,13 @@ export function getOtherFilesForUser(userId: number) {
 export function deleteAccount(userId: number, accountId: number): boolean {
   if (!db) return false;
   try {
-    // Verify the user owns this account
     const link = db.query("SELECT 1 FROM user_accounts WHERE user_id = ? AND account_id = ?").get(userId, accountId);
     if (!link) return false;
 
-    // Remove the user-account link
     db.query("DELETE FROM user_accounts WHERE user_id = ? AND account_id = ?").run(userId, accountId);
 
-    // Check if any other user still references this account
     const otherLinks = db.query("SELECT 1 FROM user_accounts WHERE account_id = ? LIMIT 1").get(accountId);
     if (!otherLinks) {
-      // No other users reference this account — clean up fully
       db.query("DELETE FROM remote_list_cache WHERE account_id = ?").run(accountId);
       db.query("DELETE FROM accounts WHERE id = ?").run(accountId);
     }

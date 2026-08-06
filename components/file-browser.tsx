@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Film, Tv, FolderOpen, Search, PlusCircle } from "lucide-react";
+import { Film, Tv, FolderOpen, RefreshCw, Search, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { MoviesGrid } from "@/components/movies-grid";
 import { TvShowsGrid } from "@/components/tv-shows-grid";
 import { TvShowDetail } from "@/components/tv-show-detail";
 import { OtherFilesView } from "@/components/other-files-view";
 import { AddAccountForm } from "@/components/add-account-form";
 import { toast } from "sonner";
+import { useFileStore } from "@/lib/store";
 
 interface FileBrowserProps {
   playerProtocol: string;
@@ -17,6 +26,8 @@ interface FileBrowserProps {
 }
 
 export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
+  const { activeAccountId } = useFileStore();
+
   const [activeTab, setActiveTab] = useState<"movies" | "tv" | "other">("movies");
   const [selectedShowTitle, setSelectedShowTitle] = useState<string | null>(null);
 
@@ -25,7 +36,9 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
   const [otherFiles, setOtherFiles] = useState<any[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
 
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
 
@@ -33,16 +46,18 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
     if (!hasAccounts) return;
     setIsLoading(true);
     try {
+      let query = activeAccountId ? `?account_id=${activeAccountId}` : "";
+
       if (activeTab === "movies") {
-        const res = await fetch("/api/library/movies");
+        const res = await fetch(`/api/library/movies${query}`);
         const data = await res.json();
         setMovies(data.items || []);
       } else if (activeTab === "tv") {
-        const res = await fetch("/api/library/tv");
+        const res = await fetch(`/api/library/tv${query}`);
         const data = await res.json();
         setTvShows(data.shows || []);
       } else if (activeTab === "other") {
-        const res = await fetch("/api/library/other");
+        const res = await fetch(`/api/library/other${query}`);
         const data = await res.json();
         setOtherFiles(data.items || []);
       }
@@ -52,11 +67,55 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, hasAccounts]);
+  }, [activeTab, activeAccountId, hasAccounts]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const doSync = useCallback(async () => {
+    if (!activeAccountId) {
+      toast.error("No active account selected");
+      return;
+    }
+
+    setIsSyncing(true);
+    toast.info("Syncing TorBox remote...");
+    try {
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_id: activeAccountId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Sync failed");
+
+      toast.success(`Sync completed! ${data.files_synced ?? 0} files indexed.`);
+      loadData();
+    } catch (e: any) {
+      toast.error(e.message || "Sync failed");
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [activeAccountId, loadData]);
+
+  // Lightweight refresh when files are inserted inline (no full TorBox API re-sync)
+  useEffect(() => {
+    const handleFilesUpdated = () => {
+      loadData();
+    };
+    window.addEventListener("torrent-files-updated", handleFilesUpdated);
+    return () => window.removeEventListener("torrent-files-updated", handleFilesUpdated);
+  }, [loadData]);
+
+  const handleSyncClick = () => {
+    setShowSyncConfirm(true);
+  };
+
+  const handleSyncConfirm = () => {
+    setShowSyncConfirm(false);
+    doSync();
+  };
 
   const handleAddAccountSuccess = () => {
     setIsAddAccountOpen(false);
@@ -156,6 +215,18 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
               />
             </div>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncClick}
+            disabled={isSyncing || !hasAccounts}
+            className="h-9 gap-1.5 text-xs font-semibold rounded-xl shrink-0 cursor-pointer"
+            title="Sync TorBox files & fetch metadata"
+          >
+            <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
+            <span>{isSyncing ? "Syncing..." : "Sync Remote"}</span>
+          </Button>
         </div>
       </div>
 
@@ -164,6 +235,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
         {selectedShowTitle && activeTab === "tv" ? (
           <TvShowDetail
             showTitle={selectedShowTitle}
+            activeAccountId={activeAccountId}
             playerProtocol={playerProtocol}
             onBack={() => setSelectedShowTitle(null)}
           />
@@ -173,6 +245,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
             isLoading={isLoading}
             searchQuery={searchQuery}
             playerProtocol={playerProtocol}
+            activeAccountId={activeAccountId}
           />
         ) : activeTab === "tv" ? (
           <TvShowsGrid
@@ -187,9 +260,40 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
             isLoading={isLoading}
             searchQuery={searchQuery}
             playerProtocol={playerProtocol}
+            activeAccountId={activeAccountId}
           />
         )}
       </div>
+
+      {/* Sync Confirmation Dialog */}
+      <Dialog open={showSyncConfirm} onOpenChange={setShowSyncConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw size={18} className="text-primary" />
+              Sync Remote Files?
+            </DialogTitle>
+            <DialogDescription>
+              This will <span className="font-semibold text-foreground">clear all stored file data</span> for this account and re-fetch everything fresh from TorBox. All files will be re-parsed and metadata will be fetched from TMDB. This may take a moment depending on how many files you have.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowSyncConfirm(false)}
+              className="rounded-xl cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSyncConfirm}
+              className="rounded-xl cursor-pointer"
+            >
+              Yes, Sync Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

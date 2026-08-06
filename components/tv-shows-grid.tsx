@@ -31,7 +31,7 @@ export function TvShowsGrid({ shows, isLoading, searchQuery, onSelectShow }: TvS
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {Array.from({ length: 12 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-[2/3] rounded-xl" />
+          <Skeleton key={i} className="aspect-2/3 rounded-xl" />
         ))}
       </div>
     );
@@ -56,7 +56,7 @@ export function TvShowsGrid({ shows, isLoading, searchQuery, onSelectShow }: TvS
           className="group relative cursor-pointer overflow-hidden rounded-xl border border-border/40 bg-card/40 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/40 flex flex-col"
         >
           {/* Poster Container */}
-          <div className="relative aspect-[2/3] w-full overflow-hidden bg-muted/40">
+          <div className="relative aspect-2/3 w-full overflow-hidden bg-muted/40">
             {show.poster_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -66,7 +66,7 @@ export function TvShowsGrid({ shows, isLoading, searchQuery, onSelectShow }: TvS
                 loading="lazy"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/50 to-muted/20 text-muted-foreground">
+              <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-muted/50 to-muted/20 text-muted-foreground">
                 <Tv size={40} className="opacity-40" />
               </div>
             )}

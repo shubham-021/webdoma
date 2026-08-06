@@ -1,10 +1,9 @@
 /**
- * lib/crypto.ts
  *
  * AES-256-GCM encryption/decryption for TorBox WebDAV passwords stored at rest.
  *
  * Key derivation: The SESSION_SECRET (arbitrary length) is hashed with SHA-256
- * to produce a fixed 32-byte AES key — no separate secret is needed.
+ * to produce a fixed 32-byte AES key - no separate secret is needed.
  *
  * Wire format (all hex, colon-separated): "<iv_hex>:<authTag_hex>:<ciphertext_hex>"
  */

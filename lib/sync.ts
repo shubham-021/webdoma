@@ -143,6 +143,140 @@ export interface SyncResult {
   error?: string;
 }
 
+/**
+ * Standalone file-processing pipeline.
+ * Parses the filename, looks up TMDB metadata, and upserts into
+ * remote_list_cache (+ media / tv_episodes when matched).
+ *
+ * Called by both:
+ *  – syncAccount (full resync)
+ *  – POST /api/torrent/create (inline insert after adding a torrent)
+ *
+ * Returns true if the file was inserted, false if skipped.
+ */
+export async function processAndInsertFile(
+  accountId: number,
+  torrentId: number,
+  torrentHash: string | null,
+  file: {
+    id: number;
+    name: string;
+    short_name?: string;
+    size: number;
+    mimetype?: string;
+  },
+  options?: { skipSizeFilter?: boolean }
+): Promise<boolean> {
+  const { skipSizeFilter = false } = options || {};
+
+  // Filter by minimum file size (skip for inline inserts where cache already filtered)
+  if (!skipSizeFilter && file.size < MIN_FILE_SIZE_BYTES) return false;
+
+  const remotePath = file.name; // e.g. "Movie Folder/Movie.mkv"
+  const filename = file.short_name || remotePath.split("/").pop() || remotePath;
+  const shortName = file.short_name || null;
+  const mimeType = file.mimetype || "application/octet-stream";
+
+  if (!isVideoFile(filename, file.mimetype)) {
+    // Non-video file above size threshold — store as 'other'
+    upsertRemoteFile(
+      accountId, torrentId, file.id,
+      remotePath, filename, shortName,
+      file.size, mimeType, torrentHash,
+      null, null, null, "other"
+    );
+    return true;
+  }
+
+  // Parse filename using parser
+  const parsed: ParsedMedia = parseMediaFilename(filename);
+
+  let tmdbId: number | null = null;
+  let mediaType: "movie" | "tv" | "other" = "other";
+
+  if (parsed.mediaType === "tv") {
+    const tvResult = await searchTmdbTv(parsed.title, parsed.year);
+    if (tvResult) {
+      const showTmdbId = tvResult.id as number;
+      tmdbId = showTmdbId;
+      const showTitle = tvResult.name || parsed.title;
+      const posterUrl = tvResult.poster_path ? `https://image.tmdb.org/t/p/w500${tvResult.poster_path}` : "";
+      const backdropUrl = tvResult.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tvResult.backdrop_path}` : "";
+      const firstAir = tvResult.first_air_date ? tvResult.first_air_date.split("-")[0] : parsed.year || "";
+
+      upsertMedia(showTmdbId, showTitle, firstAir, posterUrl, "tv", backdropUrl, tvResult.overview);
+
+      if (parsed.season !== undefined && parsed.season > 0) {
+        await fetchAndSaveSeasonEpisodes(showTmdbId, parsed.season);
+      }
+      mediaType = "tv";
+    } else {
+      // SxxEyy present but not matched on TMDB — still classify as 'tv'
+      mediaType = "tv";
+    }
+  } else {
+    // Try TMDB Movie first
+    const movieResult = await searchTmdbMovie(parsed.title, parsed.year);
+    if (movieResult) {
+      const movieTmdbId = movieResult.id as number;
+      tmdbId = movieTmdbId;
+      const movieTitle = movieResult.title || parsed.title;
+      const posterUrl = movieResult.poster_path ? `https://image.tmdb.org/t/p/w500${movieResult.poster_path}` : "";
+      const backdropUrl = movieResult.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movieResult.backdrop_path}` : "";
+      const releaseYear = movieResult.release_date ? movieResult.release_date.split("-")[0] : parsed.year || "";
+
+      upsertMedia(movieTmdbId, movieTitle, releaseYear, posterUrl, "movie", backdropUrl, movieResult.overview);
+      mediaType = "movie";
+    } else {
+      // Try TMDB TV as fallback
+      const tvResult = await searchTmdbTv(parsed.title, parsed.year);
+      if (tvResult) {
+        const showTmdbId = tvResult.id as number;
+        tmdbId = showTmdbId;
+        const showTitle = tvResult.name || parsed.title;
+        const posterUrl = tvResult.poster_path ? `https://image.tmdb.org/t/p/w500${tvResult.poster_path}` : "";
+        const backdropUrl = tvResult.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tvResult.backdrop_path}` : "";
+        const firstAir = tvResult.first_air_date ? tvResult.first_air_date.split("-")[0] : parsed.year || "";
+
+        upsertMedia(showTmdbId, showTitle, firstAir, posterUrl, "tv", backdropUrl, tvResult.overview);
+
+        if (parsed.season !== undefined && parsed.season > 0) {
+          await fetchAndSaveSeasonEpisodes(showTmdbId, parsed.season);
+        }
+        mediaType = "tv";
+      } else {
+        mediaType = "other";
+      }
+    }
+  }
+
+  const epStart = parsed.episodes && parsed.episodes.length > 0 ? parsed.episodes[0] : null;
+  const epEnd = parsed.episodes && parsed.episodes.length > 1 ? parsed.episodes[parsed.episodes.length - 1] : null;
+
+  upsertRemoteFile(
+    accountId,
+    torrentId,
+    file.id,
+    remotePath,
+    filename,
+    shortName,
+    file.size,
+    mimeType,
+    torrentHash,
+    tmdbId,
+    parsed.title,
+    parsed.year || null,
+    mediaType,
+    mediaType === "tv" ? parsed.title : null,
+    parsed.season ?? null,
+    epStart,
+    epEnd,
+    parsed.year || null
+  );
+
+  return true;
+}
+
 export async function syncAccount(accountId: number): Promise<SyncResult> {
   try {
     // 1. Get a valid access token (auto-refreshes if expired)
@@ -164,11 +298,13 @@ export async function syncAccount(accountId: number): Promise<SyncResult> {
       return { success: false, filesSynced: 0, error: e.message || "Failed to fetch torrent list" };
     }
 
+    // 3. Clear all existing remote_list_cache rows for this account (clean slate)
+    //    NOTE: media & tv_episodes tables are NOT cleared — they are shared metadata caches.
     clearRemoteFilesForAccount(accountId);
 
     let filesSynced = 0;
 
-    // 3. Process each torrent and its files
+    // 4. Process each torrent and its files through the shared pipeline
     for (const torrent of torrents) {
       const torrentId = torrent.id;
       const torrentHash = torrent.hash || null;
@@ -176,113 +312,13 @@ export async function syncAccount(accountId: number): Promise<SyncResult> {
       if (!torrent.files || !Array.isArray(torrent.files)) continue;
 
       for (const file of torrent.files) {
-        // Filter by minimum file size
-        if (file.size < MIN_FILE_SIZE_BYTES) continue;
-
-        const remotePath = file.name; // e.g. "Movie Folder/Movie.mkv"
-        const filename = file.short_name || remotePath.split("/").pop() || remotePath;
-        const shortName = file.short_name || null;
-        const mimeType = file.mimetype || "application/octet-stream";
-
-        if (!isVideoFile(filename, file.mimetype)) {
-          // Non-video file above size threshold — store as 'other'
-          upsertRemoteFile(
-            accountId, torrentId, file.id,
-            remotePath, filename, shortName,
-            file.size, mimeType, torrentHash,
-            null, null, null, "other"
-          );
-          filesSynced++;
-          continue;
-        }
-
-        // Parse filename using parser
-        const parsed: ParsedMedia = parseMediaFilename(filename);
-
-        let tmdbId: number | null = null;
-        let mediaType: "movie" | "tv" | "other" = "other";
-
-        if (parsed.mediaType === "tv") {
-          const tvResult = await searchTmdbTv(parsed.title, parsed.year);
-          if (tvResult) {
-            const showTmdbId = tvResult.id as number;
-            tmdbId = showTmdbId;
-            const showTitle = tvResult.name || parsed.title;
-            const posterUrl = tvResult.poster_path ? `https://image.tmdb.org/t/p/w500${tvResult.poster_path}` : "";
-            const backdropUrl = tvResult.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tvResult.backdrop_path}` : "";
-            const firstAir = tvResult.first_air_date ? tvResult.first_air_date.split("-")[0] : parsed.year || "";
-
-            upsertMedia(showTmdbId, showTitle, firstAir, posterUrl, "tv", backdropUrl, tvResult.overview);
-
-            if (parsed.season !== undefined && parsed.season > 0) {
-              await fetchAndSaveSeasonEpisodes(showTmdbId, parsed.season);
-            }
-            mediaType = "tv";
-          } else {
-            // SxxEyy present but not matched on TMDB — still classify as 'tv'
-            mediaType = "tv";
-          }
-        } else {
-          // Try TMDB Movie first
-          const movieResult = await searchTmdbMovie(parsed.title, parsed.year);
-          if (movieResult) {
-            const movieTmdbId = movieResult.id as number;
-            tmdbId = movieTmdbId;
-            const movieTitle = movieResult.title || parsed.title;
-            const posterUrl = movieResult.poster_path ? `https://image.tmdb.org/t/p/w500${movieResult.poster_path}` : "";
-            const backdropUrl = movieResult.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movieResult.backdrop_path}` : "";
-            const releaseYear = movieResult.release_date ? movieResult.release_date.split("-")[0] : parsed.year || "";
-
-            upsertMedia(movieTmdbId, movieTitle, releaseYear, posterUrl, "movie", backdropUrl, movieResult.overview);
-            mediaType = "movie";
-          } else {
-            // Try TMDB TV as fallback
-            const tvResult = await searchTmdbTv(parsed.title, parsed.year);
-            if (tvResult) {
-              const showTmdbId = tvResult.id as number;
-              tmdbId = showTmdbId;
-              const showTitle = tvResult.name || parsed.title;
-              const posterUrl = tvResult.poster_path ? `https://image.tmdb.org/t/p/w500${tvResult.poster_path}` : "";
-              const backdropUrl = tvResult.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tvResult.backdrop_path}` : "";
-              const firstAir = tvResult.first_air_date ? tvResult.first_air_date.split("-")[0] : parsed.year || "";
-
-              upsertMedia(showTmdbId, showTitle, firstAir, posterUrl, "tv", backdropUrl, tvResult.overview);
-
-              if (parsed.season !== undefined && parsed.season > 0) {
-                await fetchAndSaveSeasonEpisodes(showTmdbId, parsed.season);
-              }
-              mediaType = "tv";
-            } else {
-              mediaType = "other";
-            }
-          }
-        }
-
-        const epStart = parsed.episodes && parsed.episodes.length > 0 ? parsed.episodes[0] : null;
-        const epEnd = parsed.episodes && parsed.episodes.length > 1 ? parsed.episodes[parsed.episodes.length - 1] : null;
-
-        upsertRemoteFile(
+        const inserted = await processAndInsertFile(
           accountId,
           torrentId,
-          file.id,
-          remotePath,
-          filename,
-          shortName,
-          file.size,
-          mimeType,
           torrentHash,
-          tmdbId,
-          parsed.title,
-          parsed.year || null,
-          mediaType,
-          mediaType === "tv" ? parsed.title : null,
-          parsed.season ?? null,
-          epStart,
-          epEnd,
-          parsed.year || null
+          file
         );
-
-        filesSynced++;
+        if (inserted) filesSynced++;
       }
     }
 
