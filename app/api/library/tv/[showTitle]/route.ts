@@ -25,7 +25,7 @@ export async function GET(
 
     const first = rawEpisodes[0];
     const showInfo = {
-      showTitle: first.show_title || first.show_name || showTitle,
+      showTitle: first.show_name || first.show_title || showTitle,
       posterUrl: first.show_poster_url,
       backdropUrl: first.show_backdrop_url,
       overview: first.show_overview,
