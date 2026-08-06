@@ -12,6 +12,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { AddAccountForm } from "@/components/add-account-form";
 import { useFileStore } from "@/lib/store";
 import type { TorBoxAccount } from "@/lib/types";
@@ -28,6 +36,7 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
 
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState<number | null>(null);
+  const [pendingSyncAccountId, setPendingSyncAccountId] = useState<number | null>(null);
 
   // Sync activeAccountId from URL param to store initially or when it changes
   useEffect(() => {
@@ -81,6 +90,18 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
     }
   };
 
+  const handleSyncClick = (e: React.MouseEvent, accountId: number) => {
+    e.stopPropagation();
+    setPendingSyncAccountId(accountId);
+  };
+
+  const handleSyncConfirm = () => {
+    if (pendingSyncAccountId !== null) {
+      handleSyncAccount(pendingSyncAccountId);
+      setPendingSyncAccountId(null);
+    }
+  };
+
   const handleAddAccountSuccess = (newAccount?: any) => {
     setIsAddAccountOpen(false);
     if (newAccount?.id) {
@@ -89,6 +110,10 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
       window.location.reload();
     }
   };
+
+  const pendingAccount = pendingSyncAccountId !== null
+    ? accounts.find((a) => a.id === pendingSyncAccountId)
+    : null;
 
   // No accounts yet - show add button
   if (accounts.length === 0) {
@@ -114,20 +139,20 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
           <Button
             variant="outline"
             role="combobox"
-            className="w-[200px] justify-between bg-card hover:bg-card/80 border-border/50 transition-all duration-200 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="w-50 justify-between bg-card hover:bg-card/80 border-border/50 transition-all duration-200 focus-visible:ring-0 focus-visible:ring-offset-0"
           >
             <div className="flex items-center gap-2 truncate">
               <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                 <User size={12} className="text-primary" />
               </div>
               <span className="truncate text-sm">
-                {activeAccount?.webdav_username}
+                {activeAccount?.torbox_email}
               </span>
             </div>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[240px] outline-none">
+        <DropdownMenuContent align="end" className="w-60 outline-none">
           {accounts.map((account) => (
             <DropdownMenuItem
               key={account.id}
@@ -136,13 +161,12 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
               disabled={isSyncing !== null}
             >
               <div className="flex items-center gap-2 truncate flex-1">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                  account.is_active ? "bg-green-100 dark:bg-green-950" : "bg-gray-100"
-                }`}>
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${account.is_active ? "bg-green-100 dark:bg-green-950" : "bg-gray-100"
+                  }`}>
                   <User size={12} className={account.is_active ? "text-green-600 dark:text-green-400" : "text-gray-400"} />
                 </div>
                 <span className="truncate">
-                  {account.webdav_username}
+                  {account.torbox_email}
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -153,10 +177,7 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSyncAccount(account.id);
-                    }}
+                    onClick={(e) => handleSyncClick(e, account.id)}
                     disabled={isSyncing !== null}
                     title="Sync this account"
                   >
@@ -182,6 +203,38 @@ export function AccountSwitcher({ accounts }: AccountSwitcherProps) {
       </DropdownMenu>
 
       <AddAccountForm open={isAddAccountOpen} onOpenChange={setIsAddAccountOpen} onSuccess={handleAddAccountSuccess} />
+
+      {/* Sync Confirmation Dialog */}
+      <Dialog open={pendingSyncAccountId !== null} onOpenChange={(open) => !open && setPendingSyncAccountId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw size={18} className="text-primary" />
+              Sync Account?
+            </DialogTitle>
+            <DialogDescription>
+              This will <span className="font-semibold text-foreground">clear all stored file data</span> for{" "}
+              <span className="font-semibold text-foreground">{pendingAccount?.torbox_email}</span>{" "}
+              and re-fetch everything fresh from TorBox. All files will be re-parsed and metadata will be fetched from TMDB. This may take a moment.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setPendingSyncAccountId(null)}
+              className="rounded-xl cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSyncConfirm}
+              className="rounded-xl cursor-pointer"
+            >
+              Yes, Sync Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

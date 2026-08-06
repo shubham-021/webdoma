@@ -6,14 +6,17 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { buildPlayerURL } from "@/lib/players";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCallback } from "react";
 
 interface OtherFile {
   id: number;
+  account_id: number;
+  torrent_id: number;
+  file_id: number;
   remote_path: string;
   filename: string;
   sizeFormatted: string;
   mime_type: string;
-  last_modified: string;
 }
 
 interface OtherFilesViewProps {
@@ -21,118 +24,99 @@ interface OtherFilesViewProps {
   isLoading: boolean;
   searchQuery: string;
   playerProtocol: string;
-  activeAccountId: number | null;
 }
 
-export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, activeAccountId }: OtherFilesViewProps) {
+const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
+
+async function fetchCdnLink(torrentId: number, fileId: number, accountId: number): Promise<string | null> {
+  try {
+    const res = await fetch("/api/cdn-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ torrent_id: torrentId, file_id: fileId, account_id: accountId }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || "Failed to get CDN link");
+    return data.url;
+  } catch (e: any) {
+    toast.error(e.message || "Failed to get CDN link");
+    return null;
+  }
+}
+
+export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol }: OtherFilesViewProps) {
   const filtered = files.filter((f) =>
     f.filename.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCopyLink = async (remotePath: string) => {
-    try {
-      const res = await fetch("/api/auth/create-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.token) throw new Error(data.error || "Failed to create token");
+  const handleCopyLink = useCallback(async (file: OtherFile) => {
+    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
+    if (!cdnUrl) return;
 
-      const streamUrl = `${window.location.origin}/api/stream${remotePath}?token=${data.token}`;
-      await navigator.clipboard.writeText(streamUrl);
+    try {
+      await navigator.clipboard.writeText(cdnUrl);
       toast.success("Link copied");
     } catch {
       toast.error("Failed to copy link");
     }
-  };
+  }, []);
 
-  const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
+  const handleStream = useCallback(async (file: OtherFile) => {
+    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
+    if (!cdnUrl) return;
 
-  const handleStream = async (remotePath: string) => {
-    try {
-      if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
-        // FAST DIRECT PATH: Fetch encrypted WebDAV URL for Aemond daemon
-        const res = await fetch("/api/auth/direct-url", {
+    if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
+      try {
+        const daemonRes = await fetch("http://localhost:9070/play", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
+          body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
         });
-        const data = await res.json();
-        if (!res.ok || !data.cipher) throw new Error(data.error || "Failed to get stream cipher");
 
-        try {
-          const daemonRes = await fetch("http://localhost:9070/play", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ player: playerProtocol, cipher: data.cipher }),
-          });
-
-          if (daemonRes.ok) {
-            toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-              description: "High-speed encrypted bypass active."
-            });
-            return;
-          }
-          throw new Error("Daemon returned error status");
-        } catch (e: any) {
-          toast.error("Local daemon connection failed", { 
-            description: "Ensure WebDoMa Aemond is running on port 9070 on your machine." 
+        if (daemonRes.ok) {
+          toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
+            description: "CDN stream active."
           });
           return;
         }
+        throw new Error("Daemon returned error status");
+      } catch {
+        toast.error("Local daemon connection failed", { 
+          description: "Ensure WebDoMa Aemond is running on port 9070 on your machine." 
+        });
+        return;
       }
-
-      // SECURE PROXY PATH: For external protocol handlers (potplayer, infuse)
-      const res = await fetch("/api/auth/create-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.token) throw new Error(data.error || "Failed to create proxy token");
-
-      const streamUrl = `${window.location.origin}/api/stream${remotePath}?token=${data.token}`;
-      const playerUrl = buildPlayerURL(playerProtocol, streamUrl);
-      
-      const link = document.createElement("a");
-      link.href = playerUrl;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-        description: "Standard proxy stream active."
-      });
-    } catch {
-      toast.error("Failed to start stream");
     }
-  };
 
-  const handleDownload = (remotePath: string) => {
-    const encodedPath = remotePath
-      .split("/")
-      .map(encodeURIComponent)
-      .join("/");
-    window.open(`/api/download${encodedPath}?account_id=${activeAccountId}`, "_blank");
+    const playerUrl = buildPlayerURL(playerProtocol, cdnUrl);
+    const link = document.createElement("a");
+    link.href = playerUrl;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
+      description: "CDN stream active."
+    });
+  }, [playerProtocol]);
+
+  const handleDownload = useCallback(async (file: OtherFile) => {
+    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
+    if (!cdnUrl) return;
+    window.open(cdnUrl, "_blank");
     toast.success("Download started");
-  };
+  }, []);
 
-  const handleSyncplay = async (remotePath: string) => {
+  const handleSyncplay = useCallback(async (file: OtherFile) => {
     if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
-    try {
-      const res = await fetch("/api/auth/direct-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.cipher) throw new Error(data.error || "Failed to get stream cipher");
+    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
+    if (!cdnUrl) return;
 
+    try {
       const daemonRes = await fetch("http://localhost:9070/syncplay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player: playerProtocol, cipher: data.cipher }),
+        body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
       });
 
       if (daemonRes.ok) {
@@ -148,7 +132,7 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
         description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
       });
     }
-  };
+  }, [playerProtocol]);
 
   if (isLoading) {
     return (
@@ -194,7 +178,7 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
           <div className="flex items-center gap-1.5 shrink-0">
             <Button
               size="sm"
-              onClick={() => handleStream(file.remote_path)}
+              onClick={() => handleStream(file)}
               className="h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
             >
               <Play size={13} className="fill-current" />
@@ -203,7 +187,7 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
             <Button
               size="icon"
               variant="outline"
-              onClick={() => handleCopyLink(file.remote_path)}
+              onClick={() => handleCopyLink(file)}
               className="h-8 w-8 text-xs cursor-pointer"
               title="Copy Link"
             >
@@ -212,7 +196,7 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
             <Button
               size="icon"
               variant="outline"
-              onClick={() => handleDownload(file.remote_path)}
+              onClick={() => handleDownload(file)}
               className="h-8 w-8 text-xs cursor-pointer"
               title="Download File"
             >
@@ -222,7 +206,7 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
               <Button
                 size="icon"
                 variant="outline"
-                onClick={() => handleSyncplay(file.remote_path)}
+                onClick={() => handleSyncplay(file)}
                 className="h-8 w-8 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
                 title="Syncplay with friends"
               >

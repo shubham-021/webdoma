@@ -11,7 +11,7 @@ export interface DirectoryData {
 }
 
 interface FileStoreState {
-  // Directory cache: maps `${accountId}:${path}` to its contents
+  // Directory cache: maps path to its contents
   directoryCache: Record<string, DirectoryData>;
   currentPath: string;
   isLoading: boolean;

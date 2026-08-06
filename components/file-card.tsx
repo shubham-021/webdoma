@@ -52,10 +52,6 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
           <div className="w-10 h-14 rounded shrink-0 overflow-hidden bg-muted/50 border border-border/50 relative shadow-sm">
             <img src={posterUrl} alt={displayTitle} className="object-cover w-full h-full" loading="lazy" />
           </div>
-        ) : fileType === "image" ? (
-          <div className="w-10 h-10 rounded shrink-0 overflow-hidden bg-muted/50 border border-border/50 relative shadow-sm">
-            <img src={`/api/stream${item.remote_path}`} alt={item.filename} className="object-cover w-full h-full" loading="lazy" />
-          </div>
         ) : (
           <FileIcon filename={item.filename} isDirectory={false} size={24} />
         )}
@@ -83,7 +79,8 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
 
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-2">
           <FileActions
-            filePath={item.remote_path}
+            torrentId={item.torrent_id}
+            fileId={item.file_id}
             fileName={item.filename}
             isMedia={isMedia}
             playerProtocol={playerProtocol}
@@ -104,8 +101,6 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
       <div className="relative aspect-[2/3] w-full bg-muted/30 overflow-hidden">
         {posterUrl ? (
           <img src={posterUrl} alt={displayTitle} className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" loading="lazy" />
-        ) : fileType === "image" ? (
-          <img src={`/api/stream${item.remote_path}`} alt={item.filename} className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted/20">
             <FileIcon filename={item.filename} isDirectory={false} size={48} />
@@ -124,7 +119,8 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
         {/* Hover Actions */}
         <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-20 bg-background/90 backdrop-blur-md border-t border-border/50 flex justify-center">
           <FileActions
-            filePath={item.remote_path}
+            torrentId={item.torrent_id}
+            fileId={item.file_id}
             fileName={item.filename}
             isMedia={isMedia}
             playerProtocol={playerProtocol}

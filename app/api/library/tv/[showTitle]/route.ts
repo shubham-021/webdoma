@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { getTvShowDetailsForAccount, getAccountsByUserId } from "@/lib/db";
+import { getTvShowDetailsForUser } from "@/lib/db";
 import { formatBytes } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -18,21 +18,7 @@ export async function GET(
     const { showTitle: rawShowTitle } = await params;
     const showTitle = decodeURIComponent(rawShowTitle);
 
-    const { searchParams } = new URL(request.url);
-    const accountIdParam = searchParams.get("account_id");
-
-    const accounts = getAccountsByUserId(session.userId);
-    if (accounts.length === 0) {
-      return NextResponse.json({ error: "No accounts found" }, { status: 404 });
-    }
-
-    let activeAccount = accounts[0];
-    if (accountIdParam) {
-      const requested = accounts.find((a) => a.id === parseInt(accountIdParam, 10));
-      if (requested) activeAccount = requested;
-    }
-
-    const rawEpisodes = getTvShowDetailsForAccount(activeAccount.id, showTitle);
+    const rawEpisodes = getTvShowDetailsForUser(session.userId, showTitle);
     if (!rawEpisodes || rawEpisodes.length === 0) {
       return NextResponse.json({ error: "Show not found" }, { status: 404 });
     }
@@ -56,12 +42,14 @@ export async function GET(
       seasonsMap.get(sNum)!.push({
         id: row.id,
         account_id: row.account_id,
+        torrent_id: row.torrent_id,
+        file_id: row.file_id,
         remote_path: row.remote_path,
         filename: row.filename,
+        short_name: row.short_name,
         size: row.size,
         sizeFormatted: formatBytes(row.size || 0),
         mime_type: row.mime_type,
-        last_modified: row.last_modified,
         season_number: sNum,
         episode_number: row.episode_number,
         episode_end_number: row.episode_end_number,

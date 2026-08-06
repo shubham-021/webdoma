@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, Play, Download, Copy, Tv, Layers, Film, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface Episode {
   id: number;
+  account_id: number;
+  torrent_id: number;
+  file_id: number;
   remote_path: string;
   filename: string;
   sizeFormatted: string;
@@ -35,12 +38,29 @@ interface ShowInfo {
 
 interface TvShowDetailProps {
   showTitle: string;
-  activeAccountId: number | null;
   playerProtocol: string;
   onBack: () => void;
 }
 
-export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBack }: TvShowDetailProps) {
+const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
+
+async function fetchCdnLink(torrentId: number, fileId: number, accountId: number): Promise<string | null> {
+  try {
+    const res = await fetch("/api/cdn-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ torrent_id: torrentId, file_id: fileId, account_id: accountId }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || "Failed to get CDN link");
+    return data.url;
+  } catch (e: any) {
+    toast.error(e.message || "Failed to get CDN link");
+    return null;
+  }
+}
+
+export function TvShowDetail({ showTitle, playerProtocol, onBack }: TvShowDetailProps) {
   const [showInfo, setShowInfo] = useState<ShowInfo | null>(null);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
@@ -52,8 +72,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
       setIsLoading(true);
       setError(null);
       try {
-        let url = `/api/library/tv/${encodeURIComponent(showTitle)}`;
-        if (activeAccountId) url += `?account_id=${activeAccountId}`;
+        const url = `/api/library/tv/${encodeURIComponent(showTitle)}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -72,112 +91,76 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
     }
 
     loadShowDetail();
-  }, [showTitle, activeAccountId]);
+  }, [showTitle]);
 
-  const handleCopyLink = async (remotePath: string) => {
+  const handleCopyLink = useCallback(async (ep: Episode) => {
+    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
+    if (!cdnUrl) return;
+
     try {
-      const res = await fetch("/api/auth/create-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.token) throw new Error(data.error || "Failed to create token");
-
-      const streamUrl = `${window.location.origin}/api/stream${remotePath}?token=${data.token}`;
-      await navigator.clipboard.writeText(streamUrl);
+      await navigator.clipboard.writeText(cdnUrl);
       toast.success("Stream link copied");
     } catch {
       toast.error("Failed to copy link");
     }
-  };
+  }, []);
 
-  const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
+  const handleStream = useCallback(async (ep: Episode) => {
+    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
+    if (!cdnUrl) return;
 
-  const handleStream = async (remotePath: string) => {
-    try {
-      if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
-        // FAST DIRECT PATH: Fetch encrypted WebDAV URL for Aemond daemon
-        const res = await fetch("/api/auth/direct-url", {
+    if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
+      try {
+        const daemonRes = await fetch("http://localhost:9070/play", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
+          body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
         });
-        const data = await res.json();
-        if (!res.ok || !data.cipher) throw new Error(data.error || "Failed to get stream cipher");
 
-        try {
-          const daemonRes = await fetch("http://localhost:9070/play", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ player: playerProtocol, cipher: data.cipher }),
-          });
-
-          if (daemonRes.ok) {
-            toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-              description: "High-speed encrypted bypass active."
-            });
-            return;
-          }
-          throw new Error("Daemon returned error status");
-        } catch (e: any) {
-          toast.error("Local daemon connection failed", { 
-            description: "Ensure WebDoMa Aemond is running on port 9070 on your machine." 
+        if (daemonRes.ok) {
+          toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
+            description: "CDN stream active."
           });
           return;
         }
+        throw new Error("Daemon returned error status");
+      } catch {
+        toast.error("Local daemon connection failed", {
+          description: "Ensure WebDoMa Aemond is running on port 9070 on your machine."
+        });
+        return;
       }
-
-      // SECURE PROXY PATH: For external protocol handlers (potplayer, infuse)
-      const res = await fetch("/api/auth/create-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.token) throw new Error(data.error || "Failed to create proxy token");
-
-      const streamUrl = `${window.location.origin}/api/stream${remotePath}?token=${data.token}`;
-      const playerUrl = buildPlayerURL(playerProtocol, streamUrl);
-      
-      const link = document.createElement("a");
-      link.href = playerUrl;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-        description: "Standard proxy stream active."
-      });
-    } catch {
-      toast.error("Failed to start stream");
     }
-  };
 
-  const handleDownload = (remotePath: string) => {
-    const encodedPath = remotePath
-      .split("/")
-      .map(encodeURIComponent)
-      .join("/");
-    window.open(`/api/download${encodedPath}?account_id=${activeAccountId}`, "_blank");
+    const playerUrl = buildPlayerURL(playerProtocol, cdnUrl);
+    const link = document.createElement("a");
+    link.href = playerUrl;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
+      description: "CDN stream active."
+    });
+  }, [playerProtocol]);
+
+  const handleDownload = useCallback(async (ep: Episode) => {
+    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
+    if (!cdnUrl) return;
+    window.open(cdnUrl, "_blank");
     toast.success("Download started");
-  };
+  }, []);
 
-  const handleSyncplay = async (remotePath: string) => {
+  const handleSyncplay = useCallback(async (ep: Episode) => {
     if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
-    try {
-      const res = await fetch("/api/auth/direct-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: remotePath, account_id: activeAccountId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.cipher) throw new Error(data.error || "Failed to get stream cipher");
+    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
+    if (!cdnUrl) return;
 
+    try {
       const daemonRes = await fetch("http://localhost:9070/syncplay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player: playerProtocol, cipher: data.cipher }),
+        body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
       });
 
       if (daemonRes.ok) {
@@ -193,7 +176,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
         description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
       });
     }
-  };
+  }, [playerProtocol]);
 
   if (isLoading) {
     return (
@@ -247,7 +230,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
               alt=""
               className="h-full w-full object-cover opacity-20 blur-sm scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-background via-background/60 to-transparent" />
           </div>
         )}
 
@@ -257,10 +240,10 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
             <img
               src={showInfo.posterUrl}
               alt={showInfo.showTitle}
-              className="w-36 md:w-48 aspect-[2/3] object-cover rounded-xl shadow-2xl shrink-0 border border-white/10"
+              className="w-36 md:w-48 aspect-2/3 object-cover rounded-xl shadow-2xl shrink-0 border border-white/10"
             />
           ) : (
-            <div className="w-36 md:w-48 aspect-[2/3] bg-muted/40 rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-36 md:w-48 aspect-2/3 bg-muted/40 rounded-xl flex items-center justify-center shrink-0">
               <Tv size={48} className="opacity-40" />
             </div>
           )}
@@ -320,7 +303,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/50 to-muted/20 text-muted-foreground">
+                    <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-muted/50 to-muted/20 text-muted-foreground">
                       <Tv size={36} className="opacity-30" />
                     </div>
                   )}
@@ -351,7 +334,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
               <div className="p-3 pt-0 flex items-center gap-1.5 border-t border-border/20 mt-2">
                 <Button
                   size="sm"
-                  onClick={() => handleStream(ep.remote_path)}
+                  onClick={() => handleStream(ep)}
                   className="flex-1 h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer"
                 >
                   <Play size={13} className="fill-current" />
@@ -361,7 +344,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => handleSyncplay(ep.remote_path)}
+                    onClick={() => handleSyncplay(ep)}
                     className="h-8 w-8 shrink-0 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
                     title="Syncplay with friends"
                   >
@@ -371,7 +354,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
                 <Button
                   size="icon"
                   variant="outline"
-                  onClick={() => handleCopyLink(ep.remote_path)}
+                  onClick={() => handleCopyLink(ep)}
                   className="h-8 w-8 shrink-0 text-xs cursor-pointer"
                   title="Copy Stream Link"
                 >
@@ -380,7 +363,7 @@ export function TvShowDetail({ showTitle, activeAccountId, playerProtocol, onBac
                 <Button
                   size="icon"
                   variant="outline"
-                  onClick={() => handleDownload(ep.remote_path)}
+                  onClick={() => handleDownload(ep)}
                   className="h-8 w-8 shrink-0 text-xs cursor-pointer"
                   title="Download File"
                 >
