@@ -683,6 +683,172 @@ export function clearRemoteFilesForAccount(accountId: number) {
   }
 }
 
+// ── User-level queries (merge all accounts) ────────────────────────────────────
+
+export function getMoviesForUser(userId: number) {
+  if (!db) return [];
+  try {
+    return db
+      .query(
+        `SELECT
+           r.id,
+           r.account_id,
+           r.torrent_id,
+           r.file_id,
+           r.remote_path,
+           r.filename,
+           r.short_name,
+           r.size,
+           r.mime_type,
+           r.tmdb_id,
+           r.raw_title,
+           r.raw_year,
+           r.parsed_year,
+           r.synced_at,
+           m.title        AS media_title,
+           m.year         AS media_year,
+           m.poster_url   AS media_poster_url,
+           m.backdrop_url AS media_backdrop_url,
+           m.overview     AS media_overview
+         FROM remote_list_cache r
+         JOIN user_accounts ua ON r.account_id = ua.account_id
+         LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
+         WHERE ua.user_id = ? AND r.media_type = 'movie'
+         ORDER BY COALESCE(m.title, r.raw_title, r.filename) ASC`
+      )
+      .all(userId) as any[];
+  } catch (e) {
+    console.error("getMoviesForUser error:", e);
+    return [];
+  }
+}
+
+export function getTvShowsForUser(userId: number) {
+  if (!db) return [];
+  try {
+    return db
+      .query(
+        `SELECT
+           COALESCE(m.title, r.show_title, r.raw_title) AS show_title,
+           m.tmdb_id,
+           m.poster_url,
+           m.backdrop_url,
+           m.overview,
+           COUNT(DISTINCT r.season_number) AS season_count,
+           COUNT(r.id) AS episode_count,
+           MIN(r.parsed_year) AS start_year
+         FROM remote_list_cache r
+         JOIN user_accounts ua ON r.account_id = ua.account_id
+         LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
+         WHERE ua.user_id = ? AND r.media_type = 'tv'
+         GROUP BY COALESCE(m.title, r.show_title, r.raw_title) COLLATE NOCASE
+         ORDER BY show_title COLLATE NOCASE ASC`
+      )
+      .all(userId) as any[];
+  } catch (e) {
+    console.error("getTvShowsForUser error:", e);
+    return [];
+  }
+}
+
+export function getTvShowDetailsForUser(userId: number, showTitle: string) {
+  if (!db) return null;
+  try {
+    const episodes = db
+      .query(
+        `SELECT
+           r.id,
+           r.account_id,
+           r.torrent_id,
+           r.file_id,
+           r.remote_path,
+           r.filename,
+           r.short_name,
+           r.size,
+           r.mime_type,
+           r.tmdb_id,
+           r.show_title,
+           r.season_number,
+           r.episode_number,
+           r.episode_end_number,
+           r.parsed_year,
+           r.synced_at,
+           m.title        AS show_name,
+           m.poster_url   AS show_poster_url,
+           m.backdrop_url AS show_backdrop_url,
+           m.overview     AS show_overview,
+           e.episode_title,
+           e.overview     AS episode_overview,
+           e.still_url    AS episode_still_url
+         FROM remote_list_cache r
+         JOIN user_accounts ua ON r.account_id = ua.account_id
+         LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
+         LEFT JOIN tv_episodes e ON (r.tmdb_id = e.show_tmdb_id AND r.season_number = e.season_number AND r.episode_number = e.episode_number)
+         WHERE ua.user_id = ? AND r.media_type = 'tv' AND LOWER(r.show_title) = LOWER(?)
+         ORDER BY r.season_number ASC, r.episode_number ASC`
+      )
+      .all(userId, showTitle) as any[];
+
+    return episodes;
+  } catch (e) {
+    console.error("getTvShowDetailsForUser error:", e);
+    return null;
+  }
+}
+
+export function getOtherFilesForUser(userId: number) {
+  if (!db) return [];
+  try {
+    return db
+      .query(
+        `SELECT
+           r.id,
+           r.account_id,
+           r.torrent_id,
+           r.file_id,
+           r.remote_path,
+           r.filename,
+           r.short_name,
+           r.size,
+           r.mime_type,
+           r.synced_at
+         FROM remote_list_cache r
+         JOIN user_accounts ua ON r.account_id = ua.account_id
+         WHERE ua.user_id = ? AND (r.media_type = 'other' OR r.media_type IS NULL)
+         ORDER BY r.filename ASC`
+      )
+      .all(userId) as any[];
+  } catch (e) {
+    console.error("getOtherFilesForUser error:", e);
+    return [];
+  }
+}
+
+export function deleteAccount(userId: number, accountId: number): boolean {
+  if (!db) return false;
+  try {
+    // Verify the user owns this account
+    const link = db.query("SELECT 1 FROM user_accounts WHERE user_id = ? AND account_id = ?").get(userId, accountId);
+    if (!link) return false;
+
+    // Remove the user-account link
+    db.query("DELETE FROM user_accounts WHERE user_id = ? AND account_id = ?").run(userId, accountId);
+
+    // Check if any other user still references this account
+    const otherLinks = db.query("SELECT 1 FROM user_accounts WHERE account_id = ? LIMIT 1").get(accountId);
+    if (!otherLinks) {
+      // No other users reference this account — clean up fully
+      db.query("DELETE FROM remote_list_cache WHERE account_id = ?").run(accountId);
+      db.query("DELETE FROM accounts WHERE id = ?").run(accountId);
+    }
+
+    return true;
+  } catch (e) {
+    console.error("deleteAccount error:", e);
+    return false;
+  }
+}
+
 // ── legacy metadata_cache ──────────────────────────────────────────────────────
 
 export function getMetadata(filename: string) {

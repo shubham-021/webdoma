@@ -10,6 +10,7 @@ import { useCallback } from "react";
 
 interface MovieItem {
   id: number;
+  account_id: number;
   torrent_id: number;
   file_id: number;
   remote_path: string;
@@ -27,7 +28,6 @@ interface MoviesGridProps {
   isLoading: boolean;
   searchQuery: string;
   playerProtocol: string;
-  activeAccountId: number | null;
 }
 
 const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
@@ -48,14 +48,13 @@ async function fetchCdnLink(torrentId: number, fileId: number, accountId: number
   }
 }
 
-export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol, activeAccountId }: MoviesGridProps) {
+export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: MoviesGridProps) {
   const filtered = movies.filter((m) =>
     (m.title || m.filename).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleCopyLink = useCallback(async (movie: MovieItem) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
     if (!cdnUrl) return;
 
     try {
@@ -64,11 +63,10 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol, act
     } catch {
       toast.error("Failed to copy link");
     }
-  }, [activeAccountId]);
+  }, []);
 
   const handleStream = useCallback(async (movie: MovieItem) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
     if (!cdnUrl) return;
 
     if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
@@ -105,11 +103,11 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol, act
     toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
       description: "CDN stream active."
     });
-  }, [activeAccountId, playerProtocol]);
+  }, [playerProtocol]);
 
   const handleSyncplay = useCallback(async (movie: MovieItem) => {
-    if (!activeAccountId || !LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, activeAccountId);
+    if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
+    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
     if (!cdnUrl) return;
 
     try {
@@ -132,15 +130,14 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol, act
         description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
       });
     }
-  }, [activeAccountId, playerProtocol]);
+  }, [playerProtocol]);
 
   const handleDownload = useCallback(async (movie: MovieItem) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
     if (!cdnUrl) return;
     window.open(cdnUrl, "_blank");
     toast.success("Download started");
-  }, [activeAccountId]);
+  }, []);
 
   if (isLoading) {
     return (

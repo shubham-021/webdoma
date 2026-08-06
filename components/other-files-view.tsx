@@ -10,6 +10,7 @@ import { useCallback } from "react";
 
 interface OtherFile {
   id: number;
+  account_id: number;
   torrent_id: number;
   file_id: number;
   remote_path: string;
@@ -23,7 +24,6 @@ interface OtherFilesViewProps {
   isLoading: boolean;
   searchQuery: string;
   playerProtocol: string;
-  activeAccountId: number | null;
 }
 
 const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
@@ -44,14 +44,13 @@ async function fetchCdnLink(torrentId: number, fileId: number, accountId: number
   }
 }
 
-export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, activeAccountId }: OtherFilesViewProps) {
+export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol }: OtherFilesViewProps) {
   const filtered = files.filter((f) =>
     f.filename.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleCopyLink = useCallback(async (file: OtherFile) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
     if (!cdnUrl) return;
 
     try {
@@ -60,11 +59,10 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
     } catch {
       toast.error("Failed to copy link");
     }
-  }, [activeAccountId]);
+  }, []);
 
   const handleStream = useCallback(async (file: OtherFile) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
     if (!cdnUrl) return;
 
     if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
@@ -100,19 +98,18 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
     toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
       description: "CDN stream active."
     });
-  }, [activeAccountId, playerProtocol]);
+  }, [playerProtocol]);
 
   const handleDownload = useCallback(async (file: OtherFile) => {
-    if (!activeAccountId) return;
-    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, activeAccountId);
+    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
     if (!cdnUrl) return;
     window.open(cdnUrl, "_blank");
     toast.success("Download started");
-  }, [activeAccountId]);
+  }, []);
 
   const handleSyncplay = useCallback(async (file: OtherFile) => {
-    if (!activeAccountId || !LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
-    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, activeAccountId);
+    if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
+    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
     if (!cdnUrl) return;
 
     try {
@@ -135,7 +132,7 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol, 
         description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
       });
     }
-  }, [activeAccountId, playerProtocol]);
+  }, [playerProtocol]);
 
   if (isLoading) {
     return (

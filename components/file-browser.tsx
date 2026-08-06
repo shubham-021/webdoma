@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Film, Tv, FolderOpen, RefreshCw, Search, ArrowLeft } from "lucide-react";
+import { Film, Tv, FolderOpen, Search, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoviesGrid } from "@/components/movies-grid";
 import { TvShowsGrid } from "@/components/tv-shows-grid";
 import { TvShowDetail } from "@/components/tv-show-detail";
 import { OtherFilesView } from "@/components/other-files-view";
+import { AddAccountForm } from "@/components/add-account-form";
 import { toast } from "sonner";
-import { useFileStore } from "@/lib/store";
 
 interface FileBrowserProps {
   playerProtocol: string;
@@ -17,8 +17,6 @@ interface FileBrowserProps {
 }
 
 export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
-  const { activeAccountId } = useFileStore();
-
   const [activeTab, setActiveTab] = useState<"movies" | "tv" | "other">("movies");
   const [selectedShowTitle, setSelectedShowTitle] = useState<string | null>(null);
 
@@ -27,24 +25,24 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
   const [otherFiles, setOtherFiles] = useState<any[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+
   const loadData = useCallback(async () => {
+    if (!hasAccounts) return;
     setIsLoading(true);
     try {
-      let query = activeAccountId ? `?account_id=${activeAccountId}` : "";
-
       if (activeTab === "movies") {
-        const res = await fetch(`/api/library/movies${query}`);
+        const res = await fetch("/api/library/movies");
         const data = await res.json();
         setMovies(data.items || []);
       } else if (activeTab === "tv") {
-        const res = await fetch(`/api/library/tv${query}`);
+        const res = await fetch("/api/library/tv");
         const data = await res.json();
         setTvShows(data.shows || []);
       } else if (activeTab === "other") {
-        const res = await fetch(`/api/library/other${query}`);
+        const res = await fetch("/api/library/other");
         const data = await res.json();
         setOtherFiles(data.items || []);
       }
@@ -54,37 +52,47 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, activeAccountId]);
+  }, [activeTab, hasAccounts]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const handleSync = async () => {
-    if (!activeAccountId) {
-      toast.error("No active account selected");
-      return;
-    }
-
-    setIsSyncing(true);
-    toast.info("Syncing TorBox remote...");
-    try {
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account_id: activeAccountId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Sync failed");
-
-      toast.success(`Sync completed! ${data.files_synced ?? 0} files indexed.`);
-      loadData();
-    } catch (e: any) {
-      toast.error(e.message || "Sync failed");
-    } finally {
-      setIsSyncing(false);
-    }
+  const handleAddAccountSuccess = () => {
+    setIsAddAccountOpen(false);
+    window.location.reload();
   };
+
+  // No accounts — show centered add-account CTA
+  if (!hasAccounts) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-6">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <PlusCircle size={32} className="text-primary" />
+          </div>
+          <h2 className="text-xl font-bold tracking-tight">No TorBox Accounts</h2>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Add a TorBox account to start browsing your movies, TV shows, and files.
+          </p>
+        </div>
+        <Button
+          onClick={() => setIsAddAccountOpen(true)}
+          className="gap-2 cursor-pointer"
+          size="lg"
+          id="add-first-account"
+        >
+          <PlusCircle size={18} />
+          Add TorBox Account
+        </Button>
+        <AddAccountForm
+          open={isAddAccountOpen}
+          onOpenChange={setIsAddAccountOpen}
+          onSuccess={handleAddAccountSuccess}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -148,18 +156,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
               />
             </div>
           )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSync}
-            disabled={isSyncing || !hasAccounts}
-            className="h-9 gap-1.5 text-xs font-semibold rounded-xl shrink-0 cursor-pointer"
-            title="Sync TorBox files & fetch metadata"
-          >
-            <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-            <span>{isSyncing ? "Syncing..." : "Sync Remote"}</span>
-          </Button>
         </div>
       </div>
 
@@ -168,7 +164,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
         {selectedShowTitle && activeTab === "tv" ? (
           <TvShowDetail
             showTitle={selectedShowTitle}
-            activeAccountId={activeAccountId}
             playerProtocol={playerProtocol}
             onBack={() => setSelectedShowTitle(null)}
           />
@@ -178,7 +173,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
             isLoading={isLoading}
             searchQuery={searchQuery}
             playerProtocol={playerProtocol}
-            activeAccountId={activeAccountId}
           />
         ) : activeTab === "tv" ? (
           <TvShowsGrid
@@ -193,7 +187,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
             isLoading={isLoading}
             searchQuery={searchQuery}
             playerProtocol={playerProtocol}
-            activeAccountId={activeAccountId}
           />
         )}
       </div>
