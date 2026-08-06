@@ -1,79 +1,53 @@
-# WebDoMa
+<h1 align="center">WebDoMa</h1>
 
-A web interface to browse, stream, and download files from your TorBox cloud storage.
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-blue?style=for-the-badge&logo=react&logoColor=white" alt="React" />
+  <img src="https://img.shields.io/badge/Bun-black?style=for-the-badge&logo=bun&logoColor=white" alt="Bun" />
+  <img src="https://img.shields.io/badge/Tailwind-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
+</p>
 
-## How It Works
+WebDoMa is a high-performance web interface designed for browsing, streaming, and downloading files directly from your TorBox cloud storage. It works in tandem with a specialized local daemon to bypass browser constraints, handing off media streams directly to native desktop players for an optimal, high-quality playback experience.
 
-- **File Listing and Cache**: Uses the native TorBox API to list, display, and cache files directly from your TorBox storage.
-- **File Actions**: Communicates with the TorBox API to retrieve high-speed CDN links when performing actions on files such as streaming, downloading, or copying stream links.
-- **Local Playback (Aemond)**: Since the web application is typically deployed to a server, it does not launch media players directly. Instead, it communicates with a local daemon (Aemond) running on your machine to pass CDN links and open players (mpv, VLC, IINA) locally, supporting advanced features like Syncplay.
+## Environment Configuration
 
-## Getting Started
+Before attempting to run the application locally, you must configure the environment variables. Please refer to `.env.example` in the root directory for the exact keys required. **You must create and fill up your own `.env` file for the application to function correctly.**
 
-Choose one of the setup methods below depending on your requirements.
+- `TMDB_API_KEY`: Used to fetch rich metadata for movies and TV shows.
+- `SESSION_SECRET`: The secret key utilized to encrypt session cookies.
+- `TB_SB_ANON_KEY`: The Supabase GoTrue anonymous key required for TorBox API authentication.
 
-### Option 1: Deployed Site with Local Daemon
+## Running the Application
 
-If you are using a hosted instance of WebDoMa, you only need to run the daemon on your local machine to launch native media players.
+There are currently only three official ways to run WebDoMa. 
 
-1. Clone and set up the local daemon: [webdoma-aemond](https://github.com/Sn3hil/webdoma-aemond.git).
-2. Follow the setup instructions in the daemon repository to build and start the daemon on port 9070.
-3. The WebDoMa site will communicate directly with http://localhost:9070 to run your local players.
+**Note: There is no Docker implementation available to run this application at this time.**
 
-### Option 2: Unified Local Setup (Orchestrator)
+To utilize local playback features in any of the setups below, you must download and run the Aemond local daemon on your host machine. You can find the daemon repository here: [Sn3hil/webdoma-aemond](https://github.com/Sn3hil/webdoma-aemond)
 
-If you want to run both the web interface and the local daemon on your own machine without setting them up separately:
+### 1. Hosted Instance with Local Daemon
 
-1. Clone the orchestrator repository: [webdoma-orch](https://github.com/shubham-021/webdoma-orch.git).
-2. Install dependencies:
-   ```bash
-   bun install
-   ```
-3. Configure the required environment variables.
-4. Start both the site and the daemon simultaneously:
-   ```bash
-   bun dev
-   ```
+The most straightforward method is to use the official hosted instance alongside your local daemon.
 
-### Option 3: Local Site Setup (This Repository)
+- Visit the live application: [https://webdoma.kshiyo.dpdns.org/](https://webdoma.kshiyo.dpdns.org/)
+- Clone, build, and run the `webdoma-aemond` daemon on your local machine.
+- The web application will securely communicate with your local daemon to launch media players.
 
-To run only the web interface locally:
+### 2. Independent Local Setup
 
-#### Prerequisites
+If you wish to host the web interface locally, you can run the application and the daemon as two separate processes.
 
-- Bun runtime (v1.0 or higher)
+- Clone this repository and install the dependencies using Bun.
+- Create and fill up your `.env` file based on `.env.example`.
+- Start the development server using Bun.
+- Clone and start the `webdoma-aemond` daemon separately on your machine.
+- Access the local web interface to interact with your TorBox storage.
 
-#### Installation
+### 3. Unified Orchestrator Setup
 
-1. Clone this repository:
-   ```bash
-   git clone <repo-url>
-   cd webdoma
-   ```
-2. Install dependencies:
-   ```bash
-   bun install
-   ```
+For a seamless local development and usage experience, you can use the official orchestrator. This is a Turborepo configured to manage both the web interface and the local daemon simultaneously.
 
-#### Configuration
-
-Create a `.env` file in the root directory based on `.env.example`:
-
-- `SESSION_SECRET`: Key used to encrypt session cookies (minimum 32 characters).
-- `TB_SB_ANON_KEY`: The Supabase GoTrue anon key required for TorBox API authentication.
-- `TMDB_API_KEY`: (Optional) The Movie Database API key to fetch rich metadata (posters, backdrops, and descriptions) for movies and TV shows.
-
-#### Running the Application
-
-Launch the development server:
-```bash
-bun dev
-```
-
-The application will be accessible at http://localhost:3000.
-
-Build and start in production mode:
-```bash
-bun run build
-bun run start
-```
+- Clone the orchestrator repository: [shubham-021/webdoma-orch](https://github.com/shubham-021/webdoma-orch)
+- Install the workspace dependencies.
+- Ensure all necessary environment variables are filled out in the project.
+- Launch both the site and the daemon with a single command.

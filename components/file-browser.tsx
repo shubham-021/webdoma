@@ -235,7 +235,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
         {selectedShowTitle && activeTab === "tv" ? (
           <TvShowDetail
             showTitle={selectedShowTitle}
-            activeAccountId={activeAccountId}
             playerProtocol={playerProtocol}
             onBack={() => setSelectedShowTitle(null)}
           />
@@ -245,7 +244,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
             isLoading={isLoading}
             searchQuery={searchQuery}
             playerProtocol={playerProtocol}
-            activeAccountId={activeAccountId}
           />
         ) : activeTab === "tv" ? (
           <TvShowsGrid
@@ -260,7 +258,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
             isLoading={isLoading}
             searchQuery={searchQuery}
             playerProtocol={playerProtocol}
-            activeAccountId={activeAccountId}
           />
         )}
       </div>
