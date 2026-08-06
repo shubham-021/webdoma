@@ -1,4 +1,4 @@
-gh <h1 align="center">WebDoMa</h1>
+<h1 align="center">WebDoMa</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
