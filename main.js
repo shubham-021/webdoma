@@ -2,6 +2,7 @@ const { app, BrowserWindow } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
+const fs = require('fs');
 
 app.name = 'Relay';
 let nextProcess = null;
@@ -30,9 +31,19 @@ function startNextServer() {
     // Resolve path to the Next.js standalone server.js file
     const serverPath = path.join(app.getAppPath(), '.next', 'standalone', 'server.js');
 
+    // Resolve the working directory where database/data folder should live
+    const workingDir = isProd ? app.getPath('userData') : app.getAppPath();
+
+    // Create the directory if it doesn't exist
+    if (isProd && !fs.existsSync(workingDir)) {
+        fs.mkdirSync(workingDir, { recursive: true });
+    }
+
+
     // Spawn the server process using node (or bun if you package the bundle with Bun)
     nextProcess = spawn('/Users/shubham007/.bun/bin/bun', [serverPath], {
         env: {
+            cwd: workingDir,
             ...process.env,
             PORT: PORT.toString(),
             HOSTNAME: 'localhost',
