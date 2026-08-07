@@ -11,16 +11,35 @@ import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
-export function Sidebar() {
+interface SidebarProps {
+  username?: string;
+}
+
+export function Sidebar({ username = "User" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [fetchedUsername, setFetchedUsername] = useState<string>("User");
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
+    if (username === "User") {
+      fetch("/api/auth/me")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.username) {
+            setFetchedUsername(data.username);
+          }
+        })
+        .catch(console.error);
+    } else {
+      setFetchedUsername(username);
+    }
+  }, [username]);
+
+  const displayUsername = username !== "User" ? username : fetchedUsername;
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -48,7 +67,9 @@ export function Sidebar() {
       <aside className="w-16 lg:w-56 h-full flex flex-col border-r border-border/50 bg-card/30 backdrop-blur-sm shrink-0 z-20 relative">
         <div className="p-3 lg:p-4 flex items-center justify-center lg:justify-start gap-3">
           <div className="w-9 h-9 rounded-lg bg-linear-to-br from-primary to-primary/60 flex items-center justify-center shrink-0">
-            <span className="text-lg font-bold text-primary-foreground">D</span>
+            <span className="text-lg font-bold text-primary-foreground uppercase">
+              {displayUsername[0]}
+            </span>
           </div>
         </div>
       </aside>
@@ -85,14 +106,15 @@ export function Sidebar() {
               {/* Logo */}
               <div className={`p-3 lg:p-4 flex items-center ${collapsedStyle ? 'justify-center' : 'gap-3'} overflow-hidden`}>
                 <div className="w-9 h-9 rounded-lg bg-linear-to-br from-primary to-primary/60 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-primary-foreground">D</span>
+                  <span className="text-lg font-bold text-primary-foreground uppercase">
+                    {displayUsername[0]}
+                  </span>
                 </div>
                 {!collapsedStyle && (
-                  <div className="whitespace-nowrap">
-                    <h1 className="text-base font-bold tracking-tight">DoMa</h1>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                      Web
-                    </p>
+                  <div className="whitespace-nowrap flex flex-col justify-center">
+                    <h1 className="text-sm font-bold tracking-tight truncate max-w-32.5">
+                      {displayUsername}
+                    </h1>
                   </div>
                 )}
               </div>

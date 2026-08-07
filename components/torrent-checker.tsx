@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
   Magnet,
   Loader2,
@@ -23,8 +24,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import { useFileStore } from "@/lib/store";
+import { toast } from "sonner";
 import { formatBytes } from "@/lib/utils";
 
 type CheckMode = "single" | "bulk";
@@ -70,9 +71,10 @@ function extractHashes(text: string): { hash: string; magnet: string }[] {
 
 interface TorrentCheckerProps {
   hasAccounts: boolean;
+  accounts?: any[];
 }
 
-export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
+export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerProps) {
   const { activeAccountId } = useFileStore();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -84,6 +86,18 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
   const [addingHash, setAddingHash] = useState<string | null>(null);
   const [addedHashes, setAddedHashes] = useState<Set<string>>(new Set());
   const [expandedHash, setExpandedHash] = useState<string | null>(null);
+
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!selectedAccountId) {
+      if (activeAccountId) {
+        setSelectedAccountId(activeAccountId);
+      } else if (accounts.length > 0) {
+        setSelectedAccountId(accounts[0].id);
+      }
+    }
+  }, [activeAccountId, accounts, selectedAccountId]);
 
   const reset = useCallback(() => {
     setStep("input");
@@ -121,7 +135,7 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
         setMagnetMap({ [hash]: magnetInput.trim() });
 
         const params = new URLSearchParams({ hash });
-        if (activeAccountId) params.set("account_id", activeAccountId.toString());
+        if (selectedAccountId) params.set("account_id", selectedAccountId.toString());
 
         const res = await fetch(`/api/torrent/check-cache?${params}`);
         if (res.status === 401) {
@@ -158,7 +172,7 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             hashes,
-            account_id: activeAccountId,
+            account_id: selectedAccountId,
           }),
         });
 
@@ -186,7 +200,7 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
       toast.error(error instanceof Error ? error.message : "Failed to check cache");
       setStep("input");
     }
-  }, [magnetInput, mode, activeAccountId]);
+  }, [magnetInput, mode, selectedAccountId]);
 
   const handleAddTorrent = useCallback(
     async (hash: string) => {
@@ -208,7 +222,7 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             magnet,
-            account_id: activeAccountId,
+            account_id: selectedAccountId,
             cached_files: cachedFiles,
             torrent_hash: hash,
           }),
@@ -243,7 +257,7 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
         setAddingHash(null);
       }
     },
-    [magnetMap, activeAccountId, results]
+    [magnetMap, selectedAccountId, results]
   );
 
 
@@ -255,14 +269,25 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
   return (
     <>
       {/* Floating Action Button */}
-      <button
+      <motion.button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 rounded-full font-medium text-sm shadow-lg border border-border/50 bg-card text-card-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-300 hover:shadow-xl active:scale-95 cursor-pointer"
+        className="fixed bottom-6 right-6 z-50 flex items-center justify-center p-2 rounded-full shadow-lg border border-primary/20 bg-primary text-primary-foreground hover:shadow-primary/25 hover:shadow-xl active:scale-95 transition-shadow duration-300 cursor-pointer overflow-hidden group"
         id="torrent-checker-fab"
+        initial="initial"
+        whileHover="hovered"
       >
-        <Magnet size={18} />
-        <span>Add / Check Torrent</span>
-      </button>
+        <Plus size={20} className="shrink-0 group-hover:rotate-90 transition-transform duration-300" />
+        <motion.span
+          className="whitespace-nowrap overflow-hidden font-medium text-sm flex items-center"
+          variants={{
+            initial: { width: 0, opacity: 0, marginLeft: 0 },
+            hovered: { width: "auto", opacity: 1, marginLeft: 8, marginRight: 4 }
+          }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+        >
+          Check / Add Torrent
+        </motion.span>
+      </motion.button>
 
       {/* Dialog */}
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -285,8 +310,8 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
                 <button
                   onClick={() => setMode("single")}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${mode === "single"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                     }`}
                 >
                   Single
@@ -294,13 +319,30 @@ export function TorrentChecker({ hasAccounts }: TorrentCheckerProps) {
                 <button
                   onClick={() => setMode("bulk")}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${mode === "bulk"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                     }`}
                 >
                   Bulk
                 </button>
               </div>
+
+              {accounts && accounts.length > 0 && (
+                <div className="relative w-full">
+                  <select
+                    value={selectedAccountId || ""}
+                    onChange={(e) => setSelectedAccountId(Number(e.target.value))}
+                    className="w-full p-2.5 pr-8 rounded-xl bg-muted/30 border border-border/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 appearance-none cursor-pointer"
+                  >
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id} className="bg-background">
+                        {acc.torbox_email}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                </div>
+              )}
 
               <div className="relative">
                 <textarea
