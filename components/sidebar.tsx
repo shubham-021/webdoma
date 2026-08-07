@@ -64,10 +64,10 @@ export function Sidebar({ username = "User" }: SidebarProps) {
   // Prevent layout shift during SSR
   if (!isMounted) {
     return (
-      <aside className="w-16 lg:w-56 h-full flex flex-col border-r border-border/50 bg-card/30 backdrop-blur-sm shrink-0 z-20 relative">
+      <aside className="w-16 lg:w-56 h-full flex flex-col glass-panel shrink-0 z-20 relative border-r border-dashed border-black/25 dark:border-white/25">
         <div className="p-3 lg:p-4 flex items-center justify-center lg:justify-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-linear-to-br from-primary to-primary/60 flex items-center justify-center shrink-0">
-            <span className="text-lg font-bold text-primary-foreground uppercase">
+          <div className="w-9 h-9 rounded-lg bg-linear-to-br from-primary/80 to-primary/40 flex items-center justify-center shrink-0 shadow-inner">
+            <span className="text-lg font-bold font-display text-primary-foreground uppercase">
               {displayUsername[0]}
             </span>
           </div>
@@ -87,10 +87,10 @@ export function Sidebar({ username = "User" }: SidebarProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="absolute -right-3 top-6 h-6 w-6 rounded-full shadow-sm bg-gray-600/20 hover:bg-accent z-10 flex items-center justify-center"
+            className="absolute -right-3 top-6 h-6 w-6 rounded-full shadow-sm bg-background hover:bg-accent z-10 flex items-center justify-center"
             onClick={() => setIsCollapsed(!isCollapsed)}
           >
-            <TextAlignJustify className="size-14" />
+            <TextAlignJustify className="size-4" />
           </Button>
         )}
 
@@ -105,8 +105,8 @@ export function Sidebar({ username = "User" }: SidebarProps) {
             >
               {/* Logo */}
               <div className={`p-3 lg:p-4 flex items-center ${collapsedStyle ? 'justify-center' : 'gap-3'} overflow-hidden`}>
-                <div className="w-9 h-9 rounded-lg bg-linear-to-br from-primary to-primary/60 flex items-center justify-center shrink-0">
-                  <span className="text-lg font-bold text-primary-foreground uppercase">
+                <div className="w-9 h-9 rounded-lg bg-primary/60 flex items-center justify-center shrink-0 shadow-inner">
+                  <span className="text-lg font-bold font-display text-primary-foreground uppercase">
                     {displayUsername[0]}
                   </span>
                 </div>
@@ -119,7 +119,7 @@ export function Sidebar({ username = "User" }: SidebarProps) {
                 )}
               </div>
 
-              <Separator className="opacity-50" />
+              <Separator className="opacity-90" />
 
               {/* Navigation */}
               <nav className="flex-1 p-2 space-y-1 overflow-hidden">
@@ -131,8 +131,8 @@ export function Sidebar({ username = "User" }: SidebarProps) {
                         <Link
                           href={item.href}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            ? "bg-primary/20 text-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                             } ${collapsedStyle ? 'justify-center px-0' : ''}`}
                           id={`nav-${item.label.toLowerCase()}`}
                         >
@@ -154,7 +154,7 @@ export function Sidebar({ username = "User" }: SidebarProps) {
                 })}
               </nav>
 
-              <Separator className="opacity-50" />
+              <Separator className="opacity-90" />
 
               {/* Bottom actions */}
               <div className="p-2 space-y-1 overflow-hidden">
@@ -203,14 +203,14 @@ export function Sidebar({ username = "User" }: SidebarProps) {
       <motion.aside
         initial={false}
         animate={{ width: isCollapsed ? 24 : 224 }}
-        className="hidden lg:flex h-full flex-col border-r border-border/50 bg-card/30 backdrop-blur-sm shrink-0 relative z-20"
+        className="hidden lg:flex h-full flex-col glass-panel shrink-0 relative z-20 border-r border-dashed border-black/25 dark:border-white/25"
         style={{ overflow: "visible" }}
       >
         {renderContent(false)}
       </motion.aside>
 
       {/* Mobile Sidebar (Static width 64px) */}
-      <aside className="lg:hidden w-16 h-full flex flex-col border-r border-border/50 bg-card/30 backdrop-blur-sm shrink-0 z-20 relative">
+      <aside className="lg:hidden w-16 h-full flex flex-col glass-panel shrink-0 z-20 relative border-r border-dashed border-black/25 dark:border-white/25">
         {renderContent(true)}
       </aside>
     </>
