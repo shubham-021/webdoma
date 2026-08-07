@@ -2,9 +2,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { Sidebar } from "@/components/sidebar";
 import { FileBrowser } from "@/components/file-browser";
-import { AccountSwitcher } from "@/components/account-switcher";
 import { TorrentChecker } from "@/components/torrent-checker";
-import { getAccountsByUserId } from "@/lib/db";
+import { getAccountsByUserId, getUserById } from "@/lib/db";
 
 export default async function HomePage() {
   const session = await getSession();
@@ -13,23 +12,16 @@ export default async function HomePage() {
     redirect("/login");
   }
 
+  const user = getUserById(session.userId);
   const accounts = getAccountsByUserId(session.userId);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
+      <Sidebar username={user?.username} />
       <main className="flex-1 overflow-hidden flex flex-col">
-        <div className="h-14 shrink-0 border-b border-border/50 flex items-center justify-between px-4 lg:px-6 bg-card/30 backdrop-blur-sm z-10">
-          <div className="text-sm font-semibold tracking-tight text-muted-foreground hidden sm:block">
-            DoMa Files
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <AccountSwitcher accounts={accounts} />
-          </div>
-        </div>
         <FileBrowser playerProtocol={session.playerProtocol || "vlc"} hasAccounts={accounts.length > 0} />
       </main>
-      <TorrentChecker hasAccounts={accounts.length > 0} />
+      <TorrentChecker hasAccounts={accounts.length > 0} accounts={accounts} />
     </div>
   );
 }

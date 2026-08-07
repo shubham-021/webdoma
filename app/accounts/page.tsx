@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { AddAccountForm } from "@/components/add-account-form";
 import { toast } from "sonner";
 import { Loader2, PlusCircle, RefreshCw, Trash2, User } from "lucide-react";
@@ -15,6 +23,7 @@ export default function AccountsPage() {
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [syncConfirmAccountId, setSyncConfirmAccountId] = useState<number | null>(null);
 
   const fetchAccounts = async () => {
     try {
@@ -34,7 +43,11 @@ export default function AccountsPage() {
     fetchAccounts();
   }, []);
 
-  const handleSyncAccount = async (accountId: number) => {
+  const handleSyncAccount = async () => {
+    if (syncConfirmAccountId === null) return;
+    const accountId = syncConfirmAccountId;
+    
+    setSyncConfirmAccountId(null);
     setIsSyncing(accountId);
     try {
       const res = await fetch("/api/sync", {
@@ -135,7 +148,7 @@ export default function AccountsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleSyncAccount(account.id)}
+                          onClick={() => setSyncConfirmAccountId(account.id)}
                           disabled={isSyncing !== null}
                           className="gap-2"
                         >
@@ -174,6 +187,35 @@ export default function AccountsPage() {
           onOpenChange={setIsAddAccountOpen} 
           onSuccess={handleAddSuccess} 
         />
+
+        <Dialog open={syncConfirmAccountId !== null} onOpenChange={(open) => !open && setSyncConfirmAccountId(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw size={18} className="text-primary" />
+                Sync Remote Files?
+              </DialogTitle>
+              <DialogDescription>
+                This will <span className="font-semibold text-foreground">clear all stored file data</span> for this account and re-fetch everything fresh from TorBox. All files will be re-parsed and metadata will be fetched from TMDB. This may take a moment depending on how many files you have.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setSyncConfirmAccountId(null)}
+                className="rounded-xl cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSyncAccount}
+                className="rounded-xl cursor-pointer"
+              >
+                Yes, Sync Now
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
