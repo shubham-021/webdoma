@@ -111,9 +111,9 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top Navigation Control Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border-b border-border/50 bg-card/20 shrink-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-background/40 backdrop-blur-md shrink-0 z-10 relative">
         {/* Library Category Tabs */}
-        <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/40">
+        <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]">
           <Button
             variant={activeTab === "movies" ? "default" : "ghost"}
             size="sm"
@@ -162,14 +162,14 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
                 size={15}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
-          <Input
-            placeholder={`Search ${activeTab === "movies" ? "movies" : activeTab === "tv" ? "TV shows" : "files"}...`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 bg-muted/30 text-xs rounded-xl"
-          />
-        </div>
-      )}
+              <Input
+                placeholder={`Search ${activeTab === "movies" ? "movies" : activeTab === "tv" ? "TV shows" : "files"}...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 bg-muted border-0 focus-visible:ring-1 focus-visible:ring-primary/50 text-xs rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)] transition-all"
+              />
+            </div>
+          )}
         </div>
       </div>
 
