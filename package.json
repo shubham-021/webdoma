@@ -1,12 +1,32 @@
 {
   "name": "relay",
   "version": "0.1.0",
-  "private": true,
+  "main": "main.js",
   "scripts": {
     "dev": "bun --bun run next dev",
-    "build": "bun --bun run next build",
+    "build": "bun --bun run next build && bun run postbuild",
+    "postbuild": "mkdir -p .next/standalone/.next && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public",
+    "electron:dev": "bun run build && electron .",
+    "electron:dist": "bun run build && electron-builder",
     "start": "bun --bun run next start",
     "lint": "eslint"
+  },
+  "build": {
+    "appId": "com.relay.app",
+    "productName": "Relay",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "app/icon.png"
+    },
+    "files": [
+      "main.js",
+      ".next/standalone/**/*"
+    ],
+    "asar": false
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
@@ -38,6 +58,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
