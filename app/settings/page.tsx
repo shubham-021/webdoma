@@ -18,8 +18,8 @@ export default function SettingsPage() {
 
   // Load from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("doma-player-protocol");
-    const savedTemplate = localStorage.getItem("doma-custom-template");
+    const saved = localStorage.getItem("relay-player-protocol");
+    const savedTemplate = localStorage.getItem("relay-custom-template");
     if (saved) setPlayerProtocol(saved);
     if (savedTemplate) setCustomTemplate(savedTemplate);
   }, []);
@@ -28,9 +28,9 @@ export default function SettingsPage() {
     setIsSaving(true);
     try {
       // Save to localStorage for fast client-side access
-      localStorage.setItem("doma-player-protocol", playerProtocol);
+      localStorage.setItem("relay-player-protocol", playerProtocol);
       if (customTemplate) {
-        localStorage.setItem("doma-custom-template", customTemplate);
+        localStorage.setItem("relay-custom-template", customTemplate);
       }
 
       // Also persist to session cookie for server-side access
@@ -67,7 +67,7 @@ export default function SettingsPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
             <p className="text-muted-foreground mt-1">
-              Configure your DoMa Web preferences
+              Configure your Relay preferences
             </p>
           </div>
 
@@ -121,10 +121,10 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground space-y-2">
               <p>
-                <strong className="text-foreground">DoMa Web</strong> — Self-hosted TorBox file manager
+                <strong className="text-foreground">Relay</strong> — Self-hosted TorBox file manager
               </p>
               <p>
-                Browse, stream, and download files from your TorBox cloud storage via WebDAV.
+                Browse, stream, and download files from your TorBox cloud storage directly.
               </p>
               <p className="text-xs">
                 Credentials are stored in an encrypted cookie and never leave your server.

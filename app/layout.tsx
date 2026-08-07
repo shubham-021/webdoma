@@ -21,7 +21,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "WebDoMa",
+  title: "Relay",
   description:
     "Browse, stream, and download files from your TorBox cloud storage. Self-hosted, secure, and fast.",
 };
