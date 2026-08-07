@@ -28,12 +28,10 @@ function startNextServer() {
     const isProd = app.isPackaged;
 
     // Resolve path to the Next.js standalone server.js file
-    const serverPath = isProd
-        ? path.join(process.resourcesPath, 'standalone', 'server.js')
-        : path.join(__dirname, '.next', 'standalone', 'server.js');
+    const serverPath = path.join(app.getAppPath(), '.next', 'standalone', 'server.js');
 
     // Spawn the server process using node (or bun if you package the bundle with Bun)
-    nextProcess = spawn('bun', [serverPath], {
+    nextProcess = spawn('/Users/shubham007/.bun/bin/bun', [serverPath], {
         env: {
             ...process.env,
             PORT: PORT.toString(),
