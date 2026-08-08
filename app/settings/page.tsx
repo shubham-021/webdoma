@@ -5,16 +5,27 @@ import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { PlayerSelector } from "@/components/player-selector";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { LogOut, Info, Save, Loader2 } from "lucide-react";
+import { LogOut, Info, Save, Loader2, Palette, Check, Plus } from "lucide-react";
+import {
+  ACCENT_PRESETS,
+  DEFAULT_ACCENT,
+  getStoredAccent,
+  storeAccent,
+  applyAccent,
+  normalizeHex,
+} from "@/lib/accent";
 
 export default function SettingsPage() {
   const router = useRouter();
   const [playerProtocol, setPlayerProtocol] = useState("vlc");
   const [customTemplate, setCustomTemplate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [accentHex, setAccentHex] = useState(DEFAULT_ACCENT);
+  const [customHex, setCustomHex] = useState("");
 
   // Load from localStorage
   useEffect(() => {
@@ -22,6 +33,10 @@ export default function SettingsPage() {
     const savedTemplate = localStorage.getItem("relay-custom-template");
     if (saved) setPlayerProtocol(saved);
     if (savedTemplate) setCustomTemplate(savedTemplate);
+
+    const storedAccent = getStoredAccent();
+    setAccentHex(storedAccent);
+    setCustomHex(storedAccent);
   }, []);
 
   const handleSave = async () => {
@@ -59,6 +74,19 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSetAccent = (hex: string) => {
+    const normalized = normalizeHex(hex);
+    if (!normalized) {
+      toast.error("Invalid hex color");
+      return;
+    }
+    setAccentHex(normalized);
+    setCustomHex(normalized);
+    applyAccent(normalized);
+    storeAccent(normalized);
+    toast.success("Theme accent updated");
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
@@ -87,6 +115,99 @@ export default function SettingsPage() {
               {isSaving ? "Saving..." : "Save preferences"}
             </Button>
           </div>
+
+          <Separator />
+
+          {/* Theme Accent */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Palette size={18} className="text-primary" />
+                Theme Accent
+              </CardTitle>
+              <CardDescription>
+                Pick the accent color used across the app
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {ACCENT_PRESETS.map((preset) => {
+                  const active = accentHex === preset.hex;
+                  return (
+                    <button
+                      key={preset.id}
+                      title={preset.label}
+                      onClick={() => handleSetAccent(preset.hex)}
+                      className={`relative w-9 h-9 rounded-full transition-all duration-200 cursor-pointer ${
+                        active
+                          ? "ring-2 ring-foreground ring-offset-2 ring-offset-background scale-110"
+                          : "ring-1 ring-border/60 hover:scale-110"
+                      }`}
+                      style={{ backgroundColor: preset.hex }}
+                      aria-label={`Set accent to ${preset.label}`}
+                    >
+                      {active && (
+                        <Check
+                          size={16}
+                          className="absolute inset-0 m-auto text-white drop-shadow"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+
+                {/* Custom color circle */}
+                <label
+                  className={`relative w-9 h-9 rounded-full cursor-pointer transition-all duration-200 ${
+                    !ACCENT_PRESETS.some((p) => p.hex === accentHex)
+                      ? "ring-2 ring-foreground ring-offset-2 ring-offset-background scale-110"
+                      : "ring-1 ring-border/60 hover:scale-110"
+                  }`}
+                  style={{
+                    background:
+                      "conic-gradient(#ef4444, #f59e0b, #22c55e, #3b82f6, #8b5cf6, #ec4899, #ef4444)",
+                  }}
+                  title="Custom color"
+                >
+                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/30">
+                    <Plus size={14} className="text-foreground" />
+                  </span>
+                  <input
+                    type="color"
+                    value={accentHex}
+                    onChange={(e) => handleSetAccent(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    aria-label="Pick custom accent color"
+                  />
+                </label>
+              </div>
+
+              <div className="flex items-end gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <label
+                    htmlFor="custom-accent-hex"
+                    className="text-xs text-muted-foreground"
+                  >
+                    Custom hex
+                  </label>
+                  <Input
+                    id="custom-accent-hex"
+                    placeholder="#8b5cf6"
+                    value={customHex}
+                    onChange={(e) => setCustomHex(e.target.value)}
+                    className="font-mono"
+                  />
+                </div>
+                <Button
+                  onClick={() => handleSetAccent(customHex)}
+                  className="gap-1.5 cursor-pointer"
+                >
+                  <Check size={14} />
+                  Set
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           <Separator />
 
