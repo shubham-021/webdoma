@@ -34,6 +34,8 @@ interface FileStoreState {
   toggleSort: () => void;
   fetchFiles: (path: string, forceRefresh?: boolean) => Promise<void>;
   clearCache: () => void;
+  isActionPending: boolean;
+  setIsActionPending: (pending: boolean) => void;
 }
 
 export const useFileStore = create<FileStoreState>((set, get) => ({
@@ -42,6 +44,8 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   isLoading: false,
   error: null,
   activeAccountId: null,
+  isActionPending: false,
+  setIsActionPending: (pending) => set({ isActionPending: pending }),
   
   viewMode: "grid",
   searchQuery: "",

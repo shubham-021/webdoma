@@ -16,8 +16,10 @@ import { AddAccountForm } from "@/components/add-account-form";
 import { toast } from "sonner";
 import { Loader2, PlusCircle, RefreshCw, Trash2, User } from "lucide-react";
 import type { TorBoxAccount } from "@/lib/types";
+import { useFileStore } from "@/lib/store";
 
 export default function AccountsPage() {
+  const { isActionPending, setIsActionPending } = useFileStore();
   const [accounts, setAccounts] = useState<TorBoxAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
@@ -44,11 +46,12 @@ export default function AccountsPage() {
   }, []);
 
   const handleSyncAccount = async () => {
-    if (syncConfirmAccountId === null) return;
+    if (syncConfirmAccountId === null || isActionPending) return;
     const accountId = syncConfirmAccountId;
-    
+
     setSyncConfirmAccountId(null);
     setIsSyncing(accountId);
+    setIsActionPending(true);
     try {
       const res = await fetch("/api/sync", {
         method: "POST",
@@ -68,13 +71,16 @@ export default function AccountsPage() {
       toast.error("Failed to sync account");
     } finally {
       setIsSyncing(null);
+      setIsActionPending(false);
     }
   };
 
   const handleDeleteAccount = async (accountId: number) => {
+    if (isActionPending) return;
     if (!confirm("Are you sure you want to delete this account? Your downloaded media metadata for this account will be removed.")) return;
-    
+
     setIsDeleting(accountId);
+    setIsActionPending(true);
     try {
       const res = await fetch(`/api/accounts?account_id=${accountId}`, {
         method: "DELETE",
@@ -91,6 +97,7 @@ export default function AccountsPage() {
       toast.error(error.message || "Failed to delete account");
     } finally {
       setIsDeleting(null);
+      setIsActionPending(false);
     }
   };
 
@@ -111,8 +118,8 @@ export default function AccountsPage() {
                 Manage your TorBox accounts
               </p>
             </div>
-            <Button onClick={() => setIsAddAccountOpen(true)} className="gap-2">
-              <PlusCircle size={16} /> Add Account
+            <Button onClick={() => setIsAddAccountOpen(true)} disabled={isActionPending} className="gap-2">
+              {isActionPending ? <Loader2 className="animate-spin mr-2" size={16} /> : <PlusCircle size={16} />} Add Account
             </Button>
           </div>
 
@@ -143,13 +150,13 @@ export default function AccountsPage() {
                           </p>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setSyncConfirmAccountId(account.id)}
-                          disabled={isSyncing !== null}
+                          disabled={isSyncing !== null || isDeleting !== null || isActionPending}
                           className="gap-2"
                         >
                           {isSyncing === account.id ? (
@@ -163,7 +170,7 @@ export default function AccountsPage() {
                           variant="destructive"
                           size="sm"
                           onClick={() => handleDeleteAccount(account.id)}
-                          disabled={isDeleting !== null || isSyncing !== null}
+                          disabled={isDeleting !== null || isSyncing !== null || isActionPending}
                           className="gap-2"
                         >
                           {isDeleting === account.id ? (
@@ -181,11 +188,11 @@ export default function AccountsPage() {
             </CardContent>
           </Card>
         </div>
-        
-        <AddAccountForm 
-          open={isAddAccountOpen} 
-          onOpenChange={setIsAddAccountOpen} 
-          onSuccess={handleAddSuccess} 
+
+        <AddAccountForm
+          open={isAddAccountOpen}
+          onOpenChange={setIsAddAccountOpen}
+          onSuccess={handleAddSuccess}
         />
 
         <Dialog open={syncConfirmAccountId !== null} onOpenChange={(open) => !open && setSyncConfirmAccountId(null)}>

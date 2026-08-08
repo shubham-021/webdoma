@@ -75,7 +75,7 @@ interface TorrentCheckerProps {
 }
 
 export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerProps) {
-  const { activeAccountId } = useFileStore();
+  const { activeAccountId, isActionPending, setIsActionPending } = useFileStore();
 
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<Step>("input");
@@ -116,12 +116,14 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
   }, [reset]);
 
   const handleCheck = useCallback(async () => {
+    if (isActionPending) return;
     if (!magnetInput.trim()) {
       toast.error("Please paste a magnet link");
       return;
     }
 
     setStep("checking");
+    setIsActionPending(true);
 
     try {
       if (mode === "single") {
@@ -129,6 +131,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
         if (!hash) {
           toast.error("Could not extract hash from magnet link");
           setStep("input");
+          setIsActionPending(false);
           return;
         }
 
@@ -139,6 +142,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
 
         const res = await fetch(`/api/torrent/check-cache?${params}`);
         if (res.status === 401) {
+          setIsActionPending(false);
           window.location.href = "/login";
           return;
         }
@@ -157,6 +161,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
         if (entries.length === 0) {
           toast.error("Could not extract any valid magnet links");
           setStep("input");
+          setIsActionPending(false);
           return;
         }
 
@@ -177,6 +182,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
         });
 
         if (res.status === 401) {
+          setIsActionPending(false);
           window.location.href = "/login";
           return;
         }
@@ -199,11 +205,14 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
       console.error("Cache check error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to check cache");
       setStep("input");
+    } finally {
+      setIsActionPending(false);
     }
-  }, [magnetInput, mode, selectedAccountId]);
+  }, [magnetInput, mode, selectedAccountId, isActionPending, setIsActionPending]);
 
   const handleAddTorrent = useCallback(
     async (hash: string) => {
+      if (isActionPending) return;
       const magnet = magnetMap[hash];
       if (!magnet) {
         toast.error("Magnet link not found for this hash");
@@ -211,6 +220,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
       }
 
       setAddingHash(hash);
+      setIsActionPending(true);
 
       try {
         // Grab the cached file list from the cache-check results
@@ -229,6 +239,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
         });
 
         if (res.status === 401) {
+          setIsActionPending(false);
           window.location.href = "/login";
           return;
         }
@@ -255,9 +266,10 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
         toast.error(error instanceof Error ? error.message : "Failed to add torrent");
       } finally {
         setAddingHash(null);
+        setIsActionPending(false);
       }
     },
-    [magnetMap, selectedAccountId, results]
+    [magnetMap, selectedAccountId, results, isActionPending, setIsActionPending]
   );
 
 
@@ -270,11 +282,12 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
     <>
       {/* Floating Action Button */}
       <motion.button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center justify-center p-2 rounded-full shadow-lg border border-primary/20 bg-primary text-primary-foreground hover:shadow-primary/25 hover:shadow-xl active:scale-95 transition-shadow duration-300 cursor-pointer overflow-hidden group"
+        onClick={() => !isActionPending && setIsOpen(true)}
+        disabled={isActionPending}
+        className="fixed bottom-6 right-6 z-50 flex items-center justify-center p-2 rounded-full shadow-lg border border-primary/20 bg-primary text-primary-foreground hover:shadow-primary/25 hover:shadow-xl active:scale-95 transition-shadow duration-300 cursor-pointer overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
         id="torrent-checker-fab"
         initial="initial"
-        whileHover="hovered"
+        whileHover={isActionPending ? "initial" : "hovered"}
       >
         <Plus size={20} className="shrink-0 group-hover:rotate-90 transition-transform duration-300" />
         <motion.span
@@ -374,10 +387,14 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
 
               <Button
                 onClick={handleCheck}
-                disabled={!magnetInput.trim()}
+                disabled={!magnetInput.trim() || isActionPending}
                 className="w-full gap-2 rounded-xl font-semibold cursor-pointer"
               >
-                <HardDrive size={16} />
+                {isActionPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <HardDrive size={16} />
+                )}
                 Check Cache
               </Button>
             </div>
@@ -461,7 +478,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
                             e.stopPropagation();
                             handleAddTorrent(hash);
                           }}
-                          disabled={addingHash === hash}
+                          disabled={addingHash === hash || isActionPending}
                           className="h-8 gap-1.5 text-xs rounded-lg font-semibold cursor-pointer"
                         >
                           {addingHash === hash ? (

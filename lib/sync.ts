@@ -15,13 +15,23 @@ import {
   upsertRemoteFile,
   upsertMedia,
   upsertTvEpisode,
+  getUserSetting,
+  getUserIdByAccountId
 } from "./db";
 import { getValidAccessToken, fetchTorrentList } from "./torbox";
 import { MIN_FILE_SIZE_BYTES } from "./torbox-config";
 import { VIDEO_EXTENSIONS, EXCLUDED_EXTENSIONS } from "./constants";
 import { parseMediaFilename, type ParsedMedia } from "./parser";
 
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const EXCLUDED = EXCLUDED_EXTENSIONS; // keep spacing
+
+function getTmdbApiKey(userId?: number | null) {
+  let key = process.env.TMDB_API_KEY;
+  if (process.env.IS_PACKAGED === 'true' && userId) {
+    key = getUserSetting(userId, "TMDB_API_KEY") || key;
+  }
+  return key;
+}
 
 function isVideoFile(filename: string, mimetype?: string): boolean {
   // Prefer mimetype check if available
@@ -34,11 +44,11 @@ function isVideoFile(filename: string, mimetype?: string): boolean {
 // In-memory set to avoid re-fetching season details multiple times in a single sync
 const fetchedSeasonKeys = new Set<string>();
 
-async function searchTmdbMovie(title: string, year?: string) {
-  if (!TMDB_API_KEY) return null;
+async function searchTmdbMovie(title: string, year?: string, tmdbApiKey?: string | null) {
+  if (!tmdbApiKey) return null;
 
   const fetchMovie = async (searchYear?: string) => {
-    let url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}`;
+    let url = `https://api.themoviedb.org/3/search/movie?api_key=${tmdbApiKey}&query=${encodeURIComponent(title)}`;
     if (searchYear) url += `&primary_release_year=${searchYear}`;
     const res = await fetch(url);
     const data = await res.json();
@@ -72,11 +82,11 @@ async function searchTmdbMovie(title: string, year?: string) {
   }
 }
 
-async function searchTmdbTv(title: string, year?: string) {
-  if (!TMDB_API_KEY) return null;
+async function searchTmdbTv(title: string, year?: string, tmdbApiKey?: string | null) {
+  if (!tmdbApiKey) return null;
 
   const fetchTv = async (searchYear?: string) => {
-    let url = `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}`;
+    let url = `https://api.themoviedb.org/3/search/tv?api_key=${tmdbApiKey}&query=${encodeURIComponent(title)}`;
     if (searchYear) url += `&first_air_date_year=${searchYear}`;
     const res = await fetch(url);
     const data = await res.json();
@@ -110,13 +120,13 @@ async function searchTmdbTv(title: string, year?: string) {
   }
 }
 
-async function fetchAndSaveSeasonEpisodes(showTmdbId: number, seasonNumber: number) {
-  if (!TMDB_API_KEY || seasonNumber <= 0) return;
+async function fetchAndSaveSeasonEpisodes(showTmdbId: number, seasonNumber: number, tmdbApiKey?: string | null) {
+  if (!tmdbApiKey || seasonNumber <= 0) return;
   const key = `${showTmdbId}-S${seasonNumber}`;
   if (fetchedSeasonKeys.has(key)) return;
 
   try {
-    const url = `https://api.themoviedb.org/3/tv/${showTmdbId}/season/${seasonNumber}?api_key=${TMDB_API_KEY}`;
+    const url = `https://api.themoviedb.org/3/tv/${showTmdbId}/season/${seasonNumber}?api_key=${tmdbApiKey}`;
     const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
@@ -199,9 +209,12 @@ export async function processAndInsertFile(
 
   let tmdbId: number | null = null;
   let mediaType: "movie" | "tv" | "other" = "other";
+  
+  const userId = getUserIdByAccountId(accountId);
+  const tmdbApiKey = getTmdbApiKey(userId);
 
   if (parsed.mediaType === "tv") {
-    const tvResult = await searchTmdbTv(parsed.title, parsed.year);
+    const tvResult = await searchTmdbTv(parsed.title, parsed.year, tmdbApiKey);
     if (tvResult) {
       const showTmdbId = tvResult.id as number;
       tmdbId = showTmdbId;
@@ -213,7 +226,7 @@ export async function processAndInsertFile(
       upsertMedia(showTmdbId, showTitle, firstAir, posterUrl, "tv", backdropUrl, tvResult.overview);
 
       if (parsed.season !== undefined && parsed.season > 0) {
-        await fetchAndSaveSeasonEpisodes(showTmdbId, parsed.season);
+        await fetchAndSaveSeasonEpisodes(showTmdbId, parsed.season, tmdbApiKey);
       }
       mediaType = "tv";
     } else {
@@ -222,7 +235,7 @@ export async function processAndInsertFile(
     }
   } else {
     // Try TMDB Movie first
-    const movieResult = await searchTmdbMovie(parsed.title, parsed.year);
+    const movieResult = await searchTmdbMovie(parsed.title, parsed.year, tmdbApiKey);
     if (movieResult) {
       const movieTmdbId = movieResult.id as number;
       tmdbId = movieTmdbId;
@@ -235,7 +248,7 @@ export async function processAndInsertFile(
       mediaType = "movie";
     } else {
       // Try TMDB TV as fallback
-      const tvResult = await searchTmdbTv(parsed.title, parsed.year);
+      const tvResult = await searchTmdbTv(parsed.title, parsed.year, tmdbApiKey);
       if (tvResult) {
         const showTmdbId = tvResult.id as number;
         tmdbId = showTmdbId;
@@ -247,7 +260,7 @@ export async function processAndInsertFile(
         upsertMedia(showTmdbId, showTitle, firstAir, posterUrl, "tv", backdropUrl, tvResult.overview);
 
         if (parsed.season !== undefined && parsed.season > 0) {
-          await fetchAndSaveSeasonEpisodes(showTmdbId, parsed.season);
+          await fetchAndSaveSeasonEpisodes(showTmdbId, parsed.season, tmdbApiKey);
         }
         mediaType = "tv";
       } else {

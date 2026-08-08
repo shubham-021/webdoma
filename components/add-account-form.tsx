@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { CardContent, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useFileStore } from "@/lib/store";
 
 const addAccountSchema = z.object({
   torbox_email: z.string().min(1, "TorBox email is required"),
@@ -26,6 +28,7 @@ interface AddAccountFormProps {
 }
 
 export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountFormProps) {
+  const { isActionPending, setIsActionPending } = useFileStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,8 +38,10 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isActionPending) return;
     setError(null);
     setIsLoading(true);
+    setIsActionPending(true);
 
     try {
       const body = {
@@ -48,6 +53,7 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
       if (!parsed.success) {
         setError(parsed.error.issues[0].message);
         setIsLoading(false);
+        setIsActionPending(false);
         return;
       }
 
@@ -61,6 +67,8 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
 
       if (!res.ok) {
         setError(data.error || "Failed to add account");
+        setIsLoading(false);
+        setIsActionPending(false);
         return;
       }
 
@@ -73,6 +81,7 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
       setError("Network error. Please try again.");
     } finally {
       setIsLoading(false);
+      setIsActionPending(false);
     }
   };
 
@@ -98,7 +107,7 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
                 placeholder="your@email.com"
                 value={torboxEmail}
                 onChange={(e) => setTorboxEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isActionPending}
                 autoComplete="email"
                 required
               />
@@ -108,13 +117,12 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
               <label htmlFor="torbox-password" className="text-sm font-medium">
                 TorBox Password
               </label>
-              <Input
+              <PasswordInput
                 id="torbox-password"
-                type="password"
                 placeholder="Your TorBox password"
                 value={torboxPassword}
                 onChange={(e) => setTorboxPassword(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isActionPending}
                 autoComplete="off"
                 required
               />
@@ -130,9 +138,9 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading}
+              disabled={isLoading || isActionPending}
             >
-              {isLoading ? (
+              {isLoading || isActionPending ? (
                 <>
                   <Loader2 className="animate-spin mr-2" size={18} />
                   Adding & Syncing Remote...

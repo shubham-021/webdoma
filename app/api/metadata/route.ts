@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getMetadata, setMetadata } from "@/lib/db";
-
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+import { getMetadata, setMetadata, getUserSetting } from "@/lib/db";
+import { getSession } from "@/lib/session";
 
 function parseFilename(filename: string) {
   let title = filename;
@@ -50,7 +49,14 @@ export async function GET(request: Request) {
   // 2. Parse Filename
   const { title, year } = parseFilename(filename);
 
-  // 3. Check TMDB API
+  // 3. Fetch User-Specific TMDB_API_KEY in prod, fallback to global
+  const session = await getSession();
+  let TMDB_API_KEY = process.env.TMDB_API_KEY;
+  if (process.env.IS_PACKAGED === 'true' && session.userId) {
+    TMDB_API_KEY = getUserSetting(session.userId, "TMDB_API_KEY") || TMDB_API_KEY;
+  }
+
+  // 4. Check TMDB API
   if (!TMDB_API_KEY) {
     return NextResponse.json({ 
       title, 

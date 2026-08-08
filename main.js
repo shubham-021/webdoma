@@ -47,7 +47,8 @@ function startNextServer() {
             ...process.env,
             PORT: PORT.toString(),
             HOSTNAME: 'localhost',
-            NODE_ENV: isProd ? 'production' : 'development'
+            NODE_ENV: isProd ? 'production' : 'development',
+            IS_PACKAGED: isProd ? 'true' : 'false'
         },
         stdio: 'inherit' // Pipe server logs to terminal
     });

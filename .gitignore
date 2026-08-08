@@ -22,6 +22,7 @@
 /data
 /temp
 /dist
+syncplay.conf
 
 # misc
 .DS_Store

@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 if (!existsSync("./data")) {
   mkdirSync("./data", { recursive: true });
@@ -171,6 +172,44 @@ try {
       )
       .run();
 
+    // app_settings (global settings like SESSION_SECRET)
+    globalForDb.__domaDb
+      .query(
+        `
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `
+      )
+      .run();
+
+    // user_settings (user specific settings like TMDB_API_KEY, SYNCPLAY configs)
+    globalForDb.__domaDb
+      .query(
+        `
+      CREATE TABLE IF NOT EXISTS user_settings (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        PRIMARY KEY (user_id, key)
+      )
+    `
+      )
+      .run();
+
+    // Initialize environment from app_settings for production
+    if (process.env.IS_PACKAGED === 'true') {
+      try {
+        const settings = globalForDb.__domaDb.query("SELECT * FROM app_settings").all() as { key: string, value: string }[];
+        settings.forEach((s: any) => {
+          process.env[s.key] = s.value;
+        });
+      } catch (e) {
+        console.error("Failed to load app_settings into env:", e);
+      }
+    }
+
     // Safe column additions for existing databases (idempotent)
     try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN backdrop_url TEXT").run(); } catch (_) { }
     try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN overview TEXT").run(); } catch (_) { }
@@ -220,6 +259,46 @@ export function createUser(username: string, hashedPassword: string): number | n
   }
 }
 
+// settings
+
+export function getAppSetting(key: string): string | null {
+  if (!db) return null;
+  try {
+    const res = db.query("SELECT value FROM app_settings WHERE key = ?").get(key) as { value: string };
+    return res ? res.value : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function setAppSetting(key: string, value: string) {
+  if (!db) return;
+  try {
+    db.query("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+  } catch (e) {
+    console.error("setAppSetting error:", e);
+  }
+}
+
+export function getUserSetting(userId: number, key: string): string | null {
+  if (!db) return null;
+  try {
+    const res = db.query("SELECT value FROM user_settings WHERE user_id = ? AND key = ?").get(userId, key) as { value: string };
+    return res ? res.value : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function setUserSetting(userId: number, key: string, value: string) {
+  if (!db) return;
+  try {
+    db.query("INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value").run(userId, key, value);
+  } catch (e) {
+    console.error("setUserSetting error:", e);
+  }
+}
+
 // accounts
 
 export function getAccountsByUserId(userId: number) {
@@ -246,6 +325,17 @@ export function getAccountById(accountId: number) {
     return db.query("SELECT * FROM accounts WHERE id = ?").get(accountId) as any;
   } catch (e) {
     console.error("getAccountById error:", e);
+    return null;
+  }
+}
+
+export function getUserIdByAccountId(accountId: number): number | null {
+  if (!db) return null;
+  try {
+    const link = db.query("SELECT user_id FROM user_accounts WHERE account_id = ? LIMIT 1").get(accountId) as any;
+    return link ? link.user_id : null;
+  } catch (e) {
+    console.error("getUserIdByAccountId error:", e);
     return null;
   }
 }

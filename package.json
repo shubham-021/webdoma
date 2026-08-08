@@ -22,6 +22,14 @@
       ],
       "icon": "app/icon.png"
     },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "app/icon.png"
+    },
     "files": [
       "main.js",
       ".next/standalone/**/*"

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -93,7 +94,7 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
   return (
     <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl shadow-primary/5">
       <CardHeader className="text-center space-y-2">
-        <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mb-2">
+        <div className="mx-auto w-12 h-12 rounded-xl bg-linear-to-br from-primary to-primary/60 flex items-center justify-center mb-2">
           <span className="text-2xl font-bold text-primary-foreground">D</span>
         </div>
         <CardTitle className="text-2xl font-bold tracking-tight">
@@ -141,9 +142,8 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
                   <label htmlFor="login-password" className="text-sm font-medium">
                     Password
                   </label>
-                  <Input
+                  <PasswordInput
                     id="login-password"
-                    type="password"
                     placeholder="••••••••"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
@@ -181,9 +181,8 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
                   <label htmlFor="reg-password" className="text-sm font-medium">
                     Password
                   </label>
-                  <Input
+                  <PasswordInput
                     id="reg-password"
-                    type="password"
                     placeholder="••••••••"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
@@ -201,9 +200,8 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
                   <label htmlFor="reg-confirm-password" className="text-sm font-medium">
                     Confirm Password
                   </label>
-                  <Input
+                  <PasswordInput
                     id="reg-confirm-password"
-                    type="password"
                     placeholder="••••••••"
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
@@ -239,8 +237,8 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
                   ? "Signing in..."
                   : "Creating account..."
                 : authMode === "login"
-                ? "Sign In"
-                : "Create Account"}
+                  ? "Sign In"
+                  : "Create Account"}
             </Button>
           </form>
         </Tabs>

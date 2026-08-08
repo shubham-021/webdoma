@@ -4,7 +4,6 @@ import { Film, Play, Download, Copy, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { buildPlayerURL } from "@/lib/players";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCallback } from "react";
 
@@ -30,20 +29,32 @@ interface MoviesGridProps {
   playerProtocol: string;
 }
 
+interface SyncplayConfig {
+  host: string;
+  room: string;
+  user: string;
+  pass?: string;
+}
+
 const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
 
-async function fetchCdnLink(torrentId: number, fileId: number, accountId: number): Promise<string | null> {
+async function fetchAndPlayCdnLink(torrentId: number, fileId: number, accountId: number, cdnLinkRequired?: boolean, player?: string, syncplay?: boolean): Promise<string | null> {
   try {
     const res = await fetch("/api/cdn-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ torrent_id: torrentId, file_id: fileId, account_id: accountId }),
+      body: JSON.stringify({ torrent_id: torrentId, file_id: fileId, account_id: accountId, cdnLinkRequired, player, syncplay }),
     });
     const data = await res.json();
-    if (!res.ok || !data.url) throw new Error(data.error || "Failed to get CDN link");
-    return data.url;
+    if (!res.ok) throw new Error(data.error || "Failed to execute action");
+    if (cdnLinkRequired && !data.url) throw new Error("Failed to get CDN link");
+    
+    if (data.message) {
+      toast.success(data.message);
+    }
+    return data.url || null;
   } catch (e: any) {
-    toast.error(e.message || "Failed to get CDN link");
+    toast.error(e.message || "Failed to execute action");
     return null;
   }
 }
@@ -54,7 +65,7 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
   );
 
   const handleCopyLink = useCallback(async (movie: MovieItem) => {
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
+    const cdnUrl = await fetchAndPlayCdnLink(movie.torrent_id, movie.file_id, movie.account_id, true);
     if (!cdnUrl) return;
 
     try {
@@ -66,74 +77,32 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
   }, []);
 
   const handleStream = useCallback(async (movie: MovieItem) => {
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
-    if (!cdnUrl) return;
-
     if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
       try {
-        const daemonRes = await fetch("http://localhost:9070/play", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
-        });
-
-        if (daemonRes.ok) {
-          toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-            description: "CDN stream active."
-          });
-          return;
-        }
-        throw new Error("Daemon returned error status");
-      } catch {
-        toast.error("Local daemon connection failed", {
-          description: "Ensure Relay Aemond is running on port 9070 on your machine."
-        });
+        await fetchAndPlayCdnLink(movie.torrent_id, movie.file_id, movie.account_id, false, playerProtocol, false);
+      } catch (err) {
+        const errMessage = (err as Error).message;
+        toast.error("Connection failed");
+        console.error(errMessage ?? err);
         return;
       }
     }
-
-    // Protocol handler path
-    const playerUrl = buildPlayerURL(playerProtocol, cdnUrl);
-    const link = document.createElement("a");
-    link.href = playerUrl;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-      description: "CDN stream active."
-    });
   }, [playerProtocol]);
 
   const handleSyncplay = useCallback(async (movie: MovieItem) => {
     if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
-    if (!cdnUrl) return;
-
     try {
-      const daemonRes = await fetch("http://localhost:9070/syncplay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
-      });
-
-      if (daemonRes.ok) {
-        const resData = await daemonRes.json();
-        toast.success(`Syncplay launched via ${playerProtocol.toUpperCase()}`, {
-          description: `Joined room: ${resData.room || "unknown"}`,
-        });
-        return;
-      }
-      throw new Error("Daemon returned error");
+      await fetchAndPlayCdnLink(movie.torrent_id, movie.file_id, movie.account_id, false, playerProtocol, true);
+      return console.log('Launced syncplay successfully');
     } catch (e: any) {
       toast.error("Syncplay launch failed", {
-        description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
+        description: e.message || "Ensure syncplay.conf is configured.",
       });
     }
   }, [playerProtocol]);
 
   const handleDownload = useCallback(async (movie: MovieItem) => {
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
+    const cdnUrl = await fetchAndPlayCdnLink(movie.torrent_id, movie.file_id, movie.account_id, true);
     if (!cdnUrl) return;
     window.open(cdnUrl, "_blank");
     toast.success("Download started");
