@@ -25,14 +25,16 @@ interface SyncplayConfig {
   pass?: string;
 }
 
-const players_cmd = process.platform === "darwin" ? {
+const commands = process.platform === "darwin" ? {
   "mpv": "/opt/homebrew/bin/mpv",
   "vlc": "/Applications/VLC.app/Contents/MacOS/vlc",
-  "iina": "/Applications/IINA.app/Contents/MacOS/IINA"
+  "iina": "/Applications/IINA.app/Contents/MacOS/IINA",
+  "syncplay": "/Applications/Syncplay.app/Contents/MacOS/syncplay"
 } : {
   "mpv": "mpv",
   "vlc": "vlc",
-  "iina": "iina"
+  "iina": "iina",
+  "syncplay": "syncplay"
 };
 
 const players: Record<
@@ -40,16 +42,16 @@ const players: Record<
   (url: string) => { cmd: string; args: string[] }
 > = {
   mpv: (url) => ({
-    cmd: players_cmd.mpv,
+    cmd: commands.mpv,
     args: [url],
   }),
   vlc: (url) => ({
-    cmd: players_cmd.vlc,
+    cmd: commands.vlc,
     args: [url],
   }),
   iina: (url) => ({
     // IINA's CLI tool (installed separately: `brew install --cask iina-cli` or via IINA app menu)
-    cmd: players_cmd.iina,
+    cmd: commands.iina,
     args: [url],
   }),
 };
@@ -164,7 +166,7 @@ const handleSyncplay = async (url: string, player: string, userId: number) => {
     }
     syncArgs.push(url);
 
-    const syncplayCmd = process.platform === "darwin" ? "/Applications/Syncplay.app/Contents/MacOS/Syncplay" : "syncplay";
+    const syncplayCmd = commands.syncplay;
     const proc = spawn(syncplayCmd, syncArgs, {
       detached: true,
     });
