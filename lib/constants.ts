@@ -74,4 +74,4 @@ export const PLAYERS: PlayerConfig[] = [
 
 // Defaults
 
-export const DEFAULT_PLAYER_PROTOCOL = "vlc";
+export const DEFAULT_PLAYER_PROTOCOL = "mpv";

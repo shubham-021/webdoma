@@ -25,21 +25,31 @@ interface SyncplayConfig {
   pass?: string;
 }
 
+const players_cmd = process.platform === "darwin" ? {
+  "mpv": "/opt/homebrew/bin/mpv",
+  "vlc": "/Applications/VLC.app/Contents/MacOS/vlc",
+  "iina": "/Applications/IINA.app/Contents/MacOS/IINA"
+} : {
+  "mpv": "mpv",
+  "vlc": "vlc",
+  "iina": "iina"
+};
+
 const players: Record<
   string,
   (url: string) => { cmd: string; args: string[] }
 > = {
   mpv: (url) => ({
-    cmd: "mpv",
+    cmd: players_cmd.mpv,
     args: [url],
   }),
   vlc: (url) => ({
-    cmd: process.platform === "darwin" ? "/Applications/VLC.app/Contents/MacOS/vlc" : "vlc",
+    cmd: players_cmd.vlc,
     args: [url],
   }),
   iina: (url) => ({
     // IINA's CLI tool (installed separately: `brew install --cask iina-cli` or via IINA app menu)
-    cmd: "iina",
+    cmd: players_cmd.iina,
     args: [url],
   }),
 };
@@ -66,7 +76,7 @@ const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
 
 function loadSyncplayConfig(userId?: number): SyncplayConfig | null {
   const isProd = process.env.IS_PACKAGED === 'true';
-  
+
   if (isProd && userId) {
     const host = getUserSetting(userId, "SYNCPLAY_HOST");
     const room = getUserSetting(userId, "SYNCPLAY_ROOM");
