@@ -134,7 +134,7 @@ export function FileActions({
           throw new Error("Daemon returned error status");
         } catch (e: any) {
           toast.error("Local daemon connection failed", { 
-            description: "Ensure WebDoMa Aemond is running on port 9070 on your machine." 
+            description: "Ensure Relay Aemond is running on port 9070 on your machine." 
           });
           return;
         }

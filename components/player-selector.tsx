@@ -34,7 +34,7 @@ export function PlayerSelector({
         const res = await fetch("http://localhost:9070/play", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: value, url: "https://test-url.webdoma.local/test.mp4" }),
+          body: JSON.stringify({ player: value, url: "https://test-url.relay.local/test.mp4" }),
         });
 
         if (res.ok) {
@@ -46,14 +46,14 @@ export function PlayerSelector({
         }
       } catch {
         toast.error("Network error", {
-          description: "Ensure WebDoMa Aemond is running on port 9070 on your machine.",
+          description: "Ensure Relay Aemond is running on port 9070 on your machine.",
         });
       }
       return;
     }
 
     // For protocol-handler players: use client-side approach
-    const testURL = "https://test-url.webdoma.local/test.mp4";
+    const testURL = "https://test-url.relay.local/test.mp4";
     const playerURL = buildPlayerURL(value, testURL, customTemplate);
 
     const link = document.createElement("a");

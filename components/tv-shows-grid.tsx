@@ -53,7 +53,7 @@ export function TvShowsGrid({ shows, isLoading, searchQuery, onSelectShow }: TvS
         <Card
           key={show.show_title}
           onClick={() => onSelectShow(show.show_title)}
-          className="group relative cursor-pointer overflow-hidden rounded-xl border border-border/40 bg-card/40 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/40 flex flex-col"
+          className="group relative cursor-pointer overflow-hidden rounded-xl border-0 bg-black/40 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/20 flex flex-col"
         >
           {/* Poster Container */}
           <div className="relative aspect-2/3 w-full overflow-hidden bg-muted/40">
@@ -88,7 +88,7 @@ export function TvShowsGrid({ shows, isLoading, searchQuery, onSelectShow }: TvS
 
           {/* Info */}
           <div className="p-3 flex flex-col flex-1 justify-between">
-            <h3 className="text-xs font-semibold tracking-tight text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+            <h3 className="text-sm font-display font-bold tracking-wide text-foreground line-clamp-1 group-hover:text-primary transition-colors">
               {show.show_title}
             </h3>
             <span className="text-[11px] text-muted-foreground mt-1">

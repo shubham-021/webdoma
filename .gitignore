@@ -43,3 +43,4 @@ todo.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/dist

@@ -7,6 +7,10 @@ export const VIDEO_EXTENSIONS = new Set([
   "mpg", "mpeg", "ts", "vob", "3gp", "ogv",
 ]);
 
+export const EXCLUDED_EXTENSIONS = new Set([
+  "m2ts", "bin",
+]);
+
 export const AUDIO_EXTENSIONS = new Set([
   "mp3", "flac", "aac", "ogg", "wav", "wma", "m4a", "opus", "alac",
 ]);

@@ -1,17 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Film, Tv, FolderOpen, RefreshCw, Search, PlusCircle } from "lucide-react";
+import { Film, Tv, FolderOpen, Search, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { MoviesGrid } from "@/components/movies-grid";
 import { TvShowsGrid } from "@/components/tv-shows-grid";
 import { TvShowDetail } from "@/components/tv-show-detail";
@@ -36,9 +28,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
   const [otherFiles, setOtherFiles] = useState<any[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSyncConfirm, setShowSyncConfirm] = useState(false);
 
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
 
@@ -73,32 +63,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
     loadData();
   }, [loadData]);
 
-  const doSync = useCallback(async () => {
-    if (!activeAccountId) {
-      toast.error("No active account selected");
-      return;
-    }
-
-    setIsSyncing(true);
-    toast.info("Syncing TorBox remote...");
-    try {
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account_id: activeAccountId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Sync failed");
-
-      toast.success(`Sync completed! ${data.files_synced ?? 0} files indexed.`);
-      loadData();
-    } catch (e: any) {
-      toast.error(e.message || "Sync failed");
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [activeAccountId, loadData]);
-
   // Lightweight refresh when files are inserted inline (no full TorBox API re-sync)
   useEffect(() => {
     const handleFilesUpdated = () => {
@@ -107,15 +71,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
     window.addEventListener("torrent-files-updated", handleFilesUpdated);
     return () => window.removeEventListener("torrent-files-updated", handleFilesUpdated);
   }, [loadData]);
-
-  const handleSyncClick = () => {
-    setShowSyncConfirm(true);
-  };
-
-  const handleSyncConfirm = () => {
-    setShowSyncConfirm(false);
-    doSync();
-  };
 
   const handleAddAccountSuccess = () => {
     setIsAddAccountOpen(false);
@@ -156,9 +111,9 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top Navigation Control Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border-b border-border/50 bg-card/20 shrink-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-background/40 backdrop-blur-md shrink-0 z-10 relative">
         {/* Library Category Tabs */}
-        <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/40">
+        <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]">
           <Button
             variant={activeTab === "movies" ? "default" : "ghost"}
             size="sm"
@@ -211,22 +166,10 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
                 placeholder={`Search ${activeTab === "movies" ? "movies" : activeTab === "tv" ? "TV shows" : "files"}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 bg-muted/30 text-xs rounded-xl"
+                className="pl-9 h-9 bg-muted border-0 focus-visible:ring-1 focus-visible:ring-primary/50 text-xs rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)] transition-all"
               />
             </div>
           )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSyncClick}
-            disabled={isSyncing || !hasAccounts}
-            className="h-9 gap-1.5 text-xs font-semibold rounded-xl shrink-0 cursor-pointer"
-            title="Sync TorBox files & fetch metadata"
-          >
-            <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
-            <span>{isSyncing ? "Syncing..." : "Sync Remote"}</span>
-          </Button>
         </div>
       </div>
 
@@ -261,36 +204,6 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
           />
         )}
       </div>
-
-      {/* Sync Confirmation Dialog */}
-      <Dialog open={showSyncConfirm} onOpenChange={setShowSyncConfirm}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RefreshCw size={18} className="text-primary" />
-              Sync Remote Files?
-            </DialogTitle>
-            <DialogDescription>
-              This will <span className="font-semibold text-foreground">clear all stored file data</span> for this account and re-fetch everything fresh from TorBox. All files will be re-parsed and metadata will be fetched from TMDB. This may take a moment depending on how many files you have.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowSyncConfirm(false)}
-              className="rounded-xl cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSyncConfirm}
-              className="rounded-xl cursor-pointer"
-            >
-              Yes, Sync Now
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -225,6 +225,7 @@ export async function fetchTorrentList(
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      cache: "no-store",
     });
 
     if (!res.ok) {
@@ -255,7 +256,9 @@ export async function requestCdnLink(
     url.searchParams.set("file_id", String(fileId));
     url.searchParams.set("token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), {
+      cache: "no-store",
+    });
 
     if (!res.ok) {
       const err = new Error(`Failed to request CDN link (${res.status})`);
@@ -313,6 +316,7 @@ export async function checkTorrentCached(
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      cache: "no-store",
     });
 
     if (!res.ok) {

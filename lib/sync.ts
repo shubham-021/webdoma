@@ -18,7 +18,7 @@ import {
 } from "./db";
 import { getValidAccessToken, fetchTorrentList } from "./torbox";
 import { MIN_FILE_SIZE_BYTES } from "./torbox-config";
-import { VIDEO_EXTENSIONS } from "./constants";
+import { VIDEO_EXTENSIONS, EXCLUDED_EXTENSIONS } from "./constants";
 import { parseMediaFilename, type ParsedMedia } from "./parser";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
@@ -174,6 +174,12 @@ export async function processAndInsertFile(
 
   const remotePath = file.name; // e.g. "Movie Folder/Movie.mkv"
   const filename = file.short_name || remotePath.split("/").pop() || remotePath;
+
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  if (EXCLUDED_EXTENSIONS.has(ext)) {
+    return false;
+  }
+
   const shortName = file.short_name || null;
   const mimeType = file.mimetype || "application/octet-stream";
 

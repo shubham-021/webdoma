@@ -86,7 +86,7 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
         throw new Error("Daemon returned error status");
       } catch {
         toast.error("Local daemon connection failed", {
-          description: "Ensure WebDoMa Aemond is running on port 9070 on your machine."
+          description: "Ensure Relay Aemond is running on port 9070 on your machine."
         });
         return;
       }
@@ -164,7 +164,7 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
       {filtered.map((movie) => (
         <Card
           key={movie.id}
-          className="group relative overflow-hidden rounded-xl border border-border/40 bg-card/40 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/40"
+          className="group relative overflow-hidden rounded-xl border-0 bg-black/40 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/20"
         >
           {/* Full poster card — no separate info section */}
           <div className="relative aspect-2/3 w-full overflow-hidden bg-muted/40">
@@ -184,7 +184,7 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
 
             {/* Always-visible bottom gradient overlay with title */}
             <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black via-black/80 to-transparent pt-24 pb-3.5 px-3.5 transition-opacity duration-300 group-hover:opacity-0 pointer-events-none">
-              <h3 className="text-base font-extrabold text-white leading-snug line-clamp-2 drop-shadow-md">
+              <h3 className="text-lg font-display font-bold text-white leading-snug line-clamp-2 drop-shadow-lg tracking-wide">
                 {movie.title}
               </h3>
             </div>
