@@ -55,6 +55,8 @@ function startNextServer() {
 }
 
 function createWindow() {
+    if (mainWindow) return;
+
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -63,10 +65,19 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
         },
+        show: false, // Hide initially until ready-to-show
     });
 
     // Load the running Next.js application
     mainWindow.loadURL(`http://localhost:${PORT}`);
+
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show();
+        // Force the app to foreground on macOS after the asynchronous server wait
+        if (process.platform === 'darwin') {
+            app.focus({ steal: true });
+        }
+    });
 
     mainWindow.on('closed', () => {
         mainWindow = null;
