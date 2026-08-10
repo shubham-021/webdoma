@@ -171,9 +171,29 @@ try {
       )
       .run();
 
+    // user_watched (resume/continue-watching positions, mpv only for now)
+    globalForDb.__domaDb
+      .query(
+        `
+      CREATE TABLE IF NOT EXISTS user_watched (
+        user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        torrent_id       INTEGER NOT NULL,
+        file_id          INTEGER NOT NULL,
+        position_seconds REAL    NOT NULL DEFAULT 0,
+        duration_seconds REAL,
+        completed        INTEGER NOT NULL DEFAULT 0,
+        last_updated     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, account_id, torrent_id, file_id)
+      )
+    `
+      )
+      .run();
+
     // Safe column additions for existing databases (idempotent)
     try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN backdrop_url TEXT").run(); } catch (_) { }
     try { globalForDb.__domaDb.query("ALTER TABLE media ADD COLUMN overview TEXT").run(); } catch (_) { }
+    try { globalForDb.__domaDb.query("ALTER TABLE user_watched ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0").run(); } catch (_) { }
   }
 
   db = globalForDb.__domaDb;
@@ -870,6 +890,267 @@ export function deleteAccount(userId: number, accountId: number): boolean {
   } catch (e) {
     console.error("deleteAccount error:", e);
     return false;
+  }
+}
+
+// user_watched (resume positions)
+
+export function upsertWatchedPosition(
+  userId: number,
+  accountId: number,
+  torrentId: number,
+  fileId: number,
+  position: number,
+  duration: number | null,
+  completed: boolean,
+  hidden: boolean = false
+) {
+  if (!db) return;
+  try {
+    db.query(
+      `INSERT INTO user_watched (user_id, account_id, torrent_id, file_id, position_seconds, duration_seconds, completed, hidden)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, account_id, torrent_id, file_id) DO UPDATE SET
+         position_seconds = excluded.position_seconds,
+         duration_seconds = COALESCE(excluded.duration_seconds, user_watched.duration_seconds),
+         completed        = excluded.completed,
+         hidden           = excluded.hidden,
+         last_updated     = CURRENT_TIMESTAMP`
+    ).run(userId, accountId, torrentId, fileId, position, duration ?? null, completed ? 1 : 0, hidden ? 1 : 0);
+  } catch (e) {
+    console.error("upsertWatchedPosition error:", e);
+  }
+}
+
+export function getWatchedPosition(userId: number, accountId: number, torrentId: number, fileId: number) {
+  if (!db) return null;
+  try {
+    return db
+      .query(
+        "SELECT * FROM user_watched WHERE user_id=? AND account_id=? AND torrent_id=? AND file_id=?"
+      )
+      .get(userId, accountId, torrentId, fileId) as any;
+  } catch (e) {
+    console.error("getWatchedPosition error:", e);
+    return null;
+  }
+}
+
+export function getContinueWatching(userId: number, limit = 5) {
+  if (!db) return [];
+  try {
+    // A. In-progress rows (all types) — resume cards
+    const inProgress = db
+      .query(
+        `SELECT
+           w.account_id,
+           w.torrent_id,
+           w.file_id,
+           w.position_seconds,
+           w.duration_seconds,
+           w.last_updated,
+           r.filename,
+           r.media_type,
+           r.show_title,
+           r.raw_title,
+           r.tmdb_id,
+           r.season_number,
+           r.episode_number,
+           r.episode_end_number,
+           r.remote_path,
+           COALESCE(m.title, r.show_title, r.raw_title, r.filename) AS title,
+           m.poster_url,
+           COALESCE(e.still_url, m.backdrop_url, m.poster_url) AS backdrop_url,
+           m.year,
+           e.episode_title
+         FROM user_watched w
+         JOIN user_accounts ua ON ua.user_id = w.user_id AND ua.account_id = w.account_id
+         LEFT JOIN remote_list_cache r
+           ON r.account_id = w.account_id AND r.torrent_id = w.torrent_id AND r.file_id = w.file_id
+         LEFT JOIN media m ON m.tmdb_id = r.tmdb_id
+         LEFT JOIN tv_episodes e
+           ON r.tmdb_id = e.show_tmdb_id
+          AND r.season_number = e.season_number
+          AND r.episode_number = e.episode_number
+         WHERE w.user_id = ? AND w.completed = 0 AND w.position_seconds > 0 AND w.hidden = 0
+         ORDER BY w.last_updated DESC`
+      )
+      .all(userId) as any[];
+
+    // B. Completed TV rows (for up-next derivation)
+    const completedTv = db
+      .query(
+        `SELECT
+           w.account_id,
+           w.torrent_id,
+           w.file_id,
+           w.position_seconds,
+           w.duration_seconds,
+           w.last_updated,
+           r.filename,
+           r.media_type,
+           r.show_title,
+           r.raw_title,
+           r.tmdb_id,
+           r.season_number,
+           r.episode_number,
+           r.episode_end_number,
+           r.remote_path,
+           COALESCE(m.title, r.show_title, r.raw_title, r.filename) AS title,
+           m.poster_url,
+           COALESCE(e.still_url, m.backdrop_url, m.poster_url) AS backdrop_url,
+           m.year,
+           e.episode_title
+         FROM user_watched w
+         JOIN user_accounts ua ON ua.user_id = w.user_id AND ua.account_id = w.account_id
+         LEFT JOIN remote_list_cache r
+           ON r.account_id = w.account_id AND r.torrent_id = w.torrent_id AND r.file_id = w.file_id
+         LEFT JOIN media m ON m.tmdb_id = r.tmdb_id
+         LEFT JOIN tv_episodes e
+           ON r.tmdb_id = e.show_tmdb_id
+          AND r.season_number = e.season_number
+          AND r.episode_number = e.episode_number
+         WHERE w.user_id = ? AND w.completed = 1 AND r.media_type = 'tv' AND w.hidden = 0
+         ORDER BY w.last_updated DESC`
+      )
+      .all(userId) as any[];
+
+    // C. All user TV files (next-episode resolution)
+    const tvFiles = db
+      .query(
+        `SELECT r.account_id, r.torrent_id, r.file_id, r.tmdb_id, r.show_title, r.raw_title,
+                r.media_type, r.season_number, r.episode_number, r.episode_end_number, r.filename,
+                m.title AS media_title, m.poster_url, m.backdrop_url, m.year,
+                e.episode_title, e.still_url,
+                w.hidden as hidden
+         FROM remote_list_cache r
+         JOIN user_accounts ua ON ua.account_id = r.account_id
+         LEFT JOIN media m ON m.tmdb_id = r.tmdb_id
+         LEFT JOIN tv_episodes e
+           ON r.tmdb_id = e.show_tmdb_id AND r.season_number = e.season_number AND r.episode_number = e.episode_number
+         LEFT JOIN user_watched w 
+           ON w.user_id = ? AND w.account_id = r.account_id AND w.torrent_id = r.torrent_id AND w.file_id = r.file_id
+         WHERE ua.user_id = ? AND r.media_type = 'tv'`
+      )
+      .all(userId, userId) as any[];
+
+    const showKey = (row: any) =>
+      row.tmdb_id != null
+        ? `tmdb_${row.tmdb_id}`
+        : `show_${String(row.show_title || row.raw_title || "").toLowerCase()}`;
+
+    // index C by show key
+    const filesByShow = new Map<string, any[]>();
+    for (const f of tvFiles) {
+      const k = showKey(f);
+      const arr = filesByShow.get(k);
+      if (arr) arr.push(f);
+      else filesByShow.set(k, [f]);
+    }
+
+    // find next-episode file for a completed row; returns { file, season, episode } | null
+    const findNext = (completedRow: any) => {
+      const files = filesByShow.get(showKey(completedRow)) || [];
+      const curSeason = completedRow.season_number ?? 1;
+      const curEnd = completedRow.episode_end_number ?? completedRow.episode_number ?? 0;
+      const nextEp = curEnd + 1;
+      let file = files.find(
+        (f) =>
+          (f.season_number ?? 1) === curSeason &&
+          (f.episode_number ?? 0) <= nextEp &&
+          (f.episode_end_number ?? f.episode_number ?? 0) >= nextEp &&
+          !f.hidden
+      );
+      if (file) return { file, season: curSeason, episode: nextEp };
+      file = files.find((f) => (f.season_number ?? 1) === curSeason + 1 && (f.episode_number ?? 0) === 1 && !f.hidden);
+      return file ? { file, season: curSeason + 1, episode: 1 } : null;
+    };
+
+    // Up-next cards from most-recent completed row per show
+    const completedByShow = new Map<string, any>();
+    for (const row of completedTv) {
+      const key = showKey(row);
+      const existing = completedByShow.get(key);
+      if (!existing || row.last_updated > existing.last_updated) {
+        completedByShow.set(key, row);
+      }
+    }
+
+    const cards = new Map<string, any>();
+
+    const mergeCard = (key: string, card: any) => {
+      const existing = cards.get(key);
+      if (!existing || card.last_updated > existing.last_updated) {
+        cards.set(key, card);
+      }
+    };
+
+    // In-progress cards (all types)
+    for (const row of inProgress) {
+      const key =
+        row.media_type === "tv"
+          ? showKey(row)
+          : `${row.account_id}-${row.torrent_id}-${row.file_id}`;
+
+      if (row.media_type === "tv") {
+        const latestCompleted = completedByShow.get(key);
+        if (latestCompleted && latestCompleted.last_updated >= row.last_updated) {
+          continue;
+        }
+      }
+
+      mergeCard(key, {
+        account_id: row.account_id,
+        torrent_id: row.torrent_id,
+        file_id: row.file_id,
+        title: row.title || row.filename,
+        filename: row.filename,
+        media_type: row.media_type || "other",
+        show_title: row.show_title,
+        season_number: row.season_number,
+        episode_number: row.episode_number,
+        episode_title: row.episode_title,
+        poster_url: row.poster_url,
+        backdrop_url: row.backdrop_url,
+        year: row.year,
+        position_seconds: row.position_seconds,
+        duration_seconds: row.duration_seconds,
+        last_updated: row.last_updated,
+        up_next: false,
+      });
+    }
+
+    for (const [key, completedRow] of completedByShow) {
+      const next = findNext(completedRow);
+      if (!next) continue;
+      const { file, season, episode } = next;
+      mergeCard(key, {
+        account_id: file.account_id,
+        torrent_id: file.torrent_id,
+        file_id: file.file_id,
+        title: file.media_title || file.show_title || file.raw_title || file.filename,
+        filename: file.filename,
+        media_type: file.media_type || "tv",
+        show_title: file.show_title,
+        season_number: season,
+        episode_number: episode,
+        episode_title: file.episode_title,
+        poster_url: file.poster_url,
+        backdrop_url: file.still_url || file.backdrop_url || file.poster_url,
+        year: file.year,
+        position_seconds: 0,
+        duration_seconds: null,
+        last_updated: completedRow.last_updated,
+        up_next: true,
+      });
+    }
+
+    return Array.from(cards.values())
+      .sort((a, b) => (a.last_updated < b.last_updated ? 1 : -1))
+      .slice(0, limit);
+  } catch (e) {
+    console.error("getContinueWatching error:", e);
+    return [];
   }
 }
 

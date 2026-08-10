@@ -75,3 +75,6 @@ export const PLAYERS: PlayerConfig[] = [
 // Defaults
 
 export const DEFAULT_PLAYER_PROTOCOL = "vlc";
+
+// Players that support local client-side daemon launch (Aemond)
+export const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];

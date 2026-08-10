@@ -94,6 +94,28 @@ export interface CdnLinkRequest {
 export interface CdnLinkResponse {
   success: boolean;
   url: string;
+  playToken: string;   // short-lived HMAC token for resume progress reporting
+}
+
+export interface ContinueWatchingItem {
+  account_id: number;
+  torrent_id: number;
+  file_id: number;
+  title: string;
+  filename: string;
+  media_type: "movie" | "tv" | "other";
+  show_title: string | null;
+  season_number: number | null;
+  episode_number: number | null;
+  episode_title: string | null;
+  poster_url: string | null;
+  backdrop_url: string | null;
+  year: string | null;
+  position_seconds: number;
+  duration_seconds: number | null;
+  percent: number;              // 0-100, computed server-side
+  last_updated: string;
+  up_next: boolean;             // true = TV "next episode" card (no progress)
 }
 
 export interface ApiError {

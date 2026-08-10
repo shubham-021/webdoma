@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { useState, useCallback } from "react";
-import { buildPlayerURL } from "@/lib/players";
+import { LOCAL_DAEMON_PLAYERS } from "@/lib/constants";
+import { launchPlayback } from "@/lib/client-play";
 
 interface FileActionsProps {
   torrentId: number;
@@ -15,9 +16,6 @@ interface FileActionsProps {
   playerProtocol: string;
   accountId: number;
 }
-
-// Players that support local client-side daemon launch (Aemond)
-const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
 
 export function FileActions({
   torrentId,
@@ -113,51 +111,11 @@ export function FileActions({
   const handleStream = useCallback(async () => {
     setIsStreaming(true);
     try {
-      const cdnUrl = await getCdnLink();
-      if (!cdnUrl) return;
-
-      if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
-        // Send CDN URL directly to Aemond daemon
-        try {
-          const daemonRes = await fetch("http://localhost:9070/play", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
-          });
-
-          if (daemonRes.ok) {
-            toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-              description: "CDN stream active",
-            });
-            return;
-          }
-          throw new Error("Daemon returned error status");
-        } catch (e: any) {
-          toast.error("Local daemon connection failed", { 
-            description: "Ensure Relay Aemond is running on port 9070 on your machine." 
-          });
-          return;
-        }
-      }
-
-      // Protocol handler path (potplayer, infuse, etc.)
-      const playerURL = buildPlayerURL(playerProtocol, cdnUrl);
-
-      const link = document.createElement("a");
-      link.href = playerURL;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-        description: "CDN stream active",
-      });
-    } catch {
-      toast.error("Failed to open stream");
+      await launchPlayback({ torrentId, fileId, accountId, playerProtocol });
     } finally {
       setIsStreaming(false);
     }
-  }, [getCdnLink, playerProtocol]);
+  }, [torrentId, fileId, accountId, playerProtocol]);
 
   const handleDownload = useCallback(async () => {
     const cdnUrl = await getCdnLink();

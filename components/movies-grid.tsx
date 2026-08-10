@@ -4,9 +4,11 @@ import { Film, Play, Download, Copy, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { buildPlayerURL } from "@/lib/players";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCallback } from "react";
+import { LOCAL_DAEMON_PLAYERS } from "@/lib/constants";
+import { launchPlayback } from "@/lib/client-play";
+import { WatchedProgressBar } from "@/components/watched-progress-bar";
 
 interface MovieItem {
   id: number;
@@ -29,8 +31,6 @@ interface MoviesGridProps {
   searchQuery: string;
   playerProtocol: string;
 }
-
-const LOCAL_DAEMON_PLAYERS = ["mpv", "vlc", "iina"];
 
 async function fetchCdnLink(torrentId: number, fileId: number, accountId: number): Promise<string | null> {
   try {
@@ -66,42 +66,11 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
   }, []);
 
   const handleStream = useCallback(async (movie: MovieItem) => {
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
-    if (!cdnUrl) return;
-
-    if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
-      try {
-        const daemonRes = await fetch("http://localhost:9070/play", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
-        });
-
-        if (daemonRes.ok) {
-          toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-            description: "CDN stream active."
-          });
-          return;
-        }
-        throw new Error("Daemon returned error status");
-      } catch {
-        toast.error("Local daemon connection failed", {
-          description: "Ensure Relay Aemond is running on port 9070 on your machine."
-        });
-        return;
-      }
-    }
-
-    // Protocol handler path
-    const playerUrl = buildPlayerURL(playerProtocol, cdnUrl);
-    const link = document.createElement("a");
-    link.href = playerUrl;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-      description: "CDN stream active."
+    await launchPlayback({
+      torrentId: movie.torrent_id,
+      fileId: movie.file_id,
+      accountId: movie.account_id,
+      playerProtocol,
     });
   }, [playerProtocol]);
 
@@ -245,6 +214,13 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
                 )}
               </div>
             </div>
+
+            {/* Resume progress bar at the bottom of the card */}
+            <WatchedProgressBar
+              accountId={movie.account_id}
+              torrentId={movie.torrent_id}
+              fileId={movie.file_id}
+            />
           </div>
         </Card>
       ))}
