@@ -9,6 +9,7 @@ import { useCallback } from "react";
 import { LOCAL_DAEMON_PLAYERS } from "@/lib/constants";
 import { launchPlayback } from "@/lib/client-play";
 import { WatchedProgressBar } from "@/components/watched-progress-bar";
+import { useFileStore } from "@/lib/store";
 
 interface MovieItem {
   id: number;
@@ -49,6 +50,8 @@ async function fetchCdnLink(torrentId: number, fileId: number, accountId: number
 }
 
 export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: MoviesGridProps) {
+  const { viewMode } = useFileStore();
+
   const filtered = movies.filter((m) =>
     (m.title || m.filename).toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -110,9 +113,9 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+      <div className={viewMode === "list" ? "flex flex-col gap-3" : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5"}>
         {Array.from({ length: 10 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-2/3 rounded-xl" />
+          <Skeleton key={i} className={viewMode === "list" ? "h-20 w-full rounded-xl" : "aspect-2/3 rounded-xl"} />
         ))}
       </div>
     );
@@ -129,8 +132,85 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+    <div className={viewMode === "list" ? "flex flex-col gap-3" : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5"}>
       {filtered.map((movie) => (
+        viewMode === "list" ? (
+          <div
+            key={movie.id}
+            className="group flex flex-col sm:flex-row items-stretch sm:items-center gap-4 px-4 py-3 rounded-xl border border-border/40 bg-card/40 hover:border-primary/40 transition-all overflow-hidden relative"
+          >
+            {/* Poster Thumbnail */}
+            <div className="w-12 h-16 shrink-0 rounded bg-muted/30 overflow-hidden relative border border-border/50">
+              {movie.poster_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={movie.poster_url} alt={movie.title} className="object-cover w-full h-full" loading="lazy" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                  <Film size={20} className="opacity-40" />
+                </div>
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <h3 className="text-sm font-bold tracking-tight text-foreground truncate group-hover:text-primary transition-colors">
+                {movie.filename}
+              </h3>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
+                {movie.year && <span>{movie.year}</span>}
+                {movie.year && <span className="text-muted-foreground/50">•</span>}
+                <span>{movie.sizeFormatted}</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity sm:mt-0 pb-1 sm:pb-0">
+                <Button
+                  size="sm"
+                  onClick={() => handleStream(movie)}
+                  className="h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer"
+                >
+                  <Play size={13} className="fill-current" />
+                  Stream
+                </Button>
+                {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => handleSyncplay(movie)}
+                    className="h-8 w-8 shrink-0 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                    title="Syncplay with friends"
+                  >
+                    <Users size={13} />
+                  </Button>
+                )}
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => handleCopyLink(movie)}
+                  className="h-8 w-8 shrink-0 text-xs cursor-pointer"
+                  title="Copy CDN Link"
+                >
+                  <Copy size={13} />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => handleDownload(movie)}
+                  className="h-8 w-8 shrink-0 text-xs cursor-pointer"
+                  title="Download File"
+                >
+                  <Download size={13} />
+                </Button>
+            </div>
+            
+            <WatchedProgressBar
+              accountId={movie.account_id}
+              torrentId={movie.torrent_id}
+              fileId={movie.file_id}
+            />
+          </div>
+        ) : (
         <Card
           key={movie.id}
           className="group relative overflow-hidden rounded-xl border-0 bg-black/40 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/20"
@@ -223,6 +303,7 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
             />
           </div>
         </Card>
+        )
       ))}
     </div>
   );

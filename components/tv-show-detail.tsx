@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { launchPlayback } from "@/lib/client-play";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFileStore } from "@/lib/store";
+import { WatchedProgressBar } from "@/components/watched-progress-bar";
 
 interface Episode {
   id: number;
@@ -61,6 +63,7 @@ async function fetchCdnLink(torrentId: number, fileId: number, accountId: number
 }
 
 export function TvShowDetail({ showTitle, playerProtocol, onBack }: TvShowDetailProps) {
+  const { viewMode } = useFileStore();
   const [showInfo, setShowInfo] = useState<ShowInfo | null>(null);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
@@ -255,8 +258,85 @@ export function TvShowDetail({ showTitle, playerProtocol, onBack }: TvShowDetail
 
       {/* Episode Cards Grid */}
       {activeSeasonData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={viewMode === "list" ? "flex flex-col gap-3" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"}>
           {activeSeasonData.episodes.map((ep) => (
+            viewMode === "list" ? (
+              <div
+                key={ep.id}
+                className="group flex flex-col sm:flex-row items-stretch sm:items-center gap-4 px-4 py-3 rounded-xl border border-border/40 bg-card/40 hover:border-primary/40 transition-all overflow-hidden relative"
+              >
+                {/* Still Thumbnail */}
+                <div className="w-16 h-10 shrink-0 rounded bg-muted/30 overflow-hidden relative border border-border/50">
+                  {ep.still_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={ep.still_url} alt={ep.episode_title} className="object-cover w-full h-full" loading="lazy" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      <Tv size={16} className="opacity-40" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground truncate group-hover:text-primary transition-colors">
+                    {ep.filename}
+                  </h3>
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
+                    <span className="font-semibold text-foreground/80">S{String(ep.season_number).padStart(2, "0")}E{String(ep.episode_number).padStart(2, "0")}</span>
+                    <span className="text-muted-foreground/50">•</span>
+                    <span>{ep.sizeFormatted}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity sm:mt-0 pb-1 sm:pb-0">
+                    <Button
+                      size="sm"
+                      onClick={() => handleStream(ep)}
+                      className="h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer"
+                    >
+                      <Play size={13} className="fill-current" />
+                      Stream
+                    </Button>
+                    {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => handleSyncplay(ep)}
+                        className="h-8 w-8 shrink-0 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                        title="Syncplay with friends"
+                      >
+                        <Users size={13} />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => handleCopyLink(ep)}
+                      className="h-8 w-8 shrink-0 text-xs cursor-pointer"
+                      title="Copy Stream Link"
+                    >
+                      <Copy size={13} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => handleDownload(ep)}
+                      className="h-8 w-8 shrink-0 text-xs cursor-pointer"
+                      title="Download File"
+                    >
+                      <Download size={13} />
+                    </Button>
+                </div>
+                
+                <WatchedProgressBar
+                  accountId={ep.account_id}
+                  torrentId={ep.torrent_id}
+                  fileId={ep.file_id}
+                />
+              </div>
+            ) : (
             <Card
               key={ep.id}
               className="group relative overflow-hidden rounded-xl border border-border/40 bg-card/40 hover:border-primary/40 transition-all flex flex-col justify-between"
@@ -341,6 +421,7 @@ export function TvShowDetail({ showTitle, playerProtocol, onBack }: TvShowDetail
                 </Button>
               </div>
             </Card>
+            )
           ))}
         </div>
       )}

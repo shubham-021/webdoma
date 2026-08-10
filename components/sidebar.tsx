@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FolderOpen, Settings, LogOut, Loader2, Users, ChevronLeft, ChevronRight, TextAlignJustify } from "lucide-react";
+import { FolderOpen, Settings, LogOut, Loader2, Users, ChevronLeft, ChevronRight, TextAlignJustify, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useFileStore } from "@/lib/store";
 
 interface SidebarProps {
   username?: string;
@@ -18,6 +19,7 @@ interface SidebarProps {
 export function Sidebar({ username = "User" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { viewMode, setViewMode } = useFileStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -158,7 +160,27 @@ export function Sidebar({ username = "User" }: SidebarProps) {
 
               {/* Bottom actions */}
               <div className="p-2 space-y-1 overflow-hidden">
-                <div className={`flex items-center px-1 ${collapsedStyle ? 'justify-center' : 'justify-start'}`}>
+                <div className={`flex items-center px-1 mb-2 ${collapsedStyle ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
+                  <div className={`flex items-center bg-muted/50 rounded-lg p-0.5 ${collapsedStyle ? 'flex-col' : ''}`}>
+                    <Button
+                      variant={viewMode === "grid" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-7 w-7 rounded-md cursor-pointer"
+                      onClick={() => setViewMode("grid")}
+                      title="Grid View"
+                    >
+                      <LayoutGrid size={14} />
+                    </Button>
+                    <Button
+                      variant={viewMode === "list" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-7 w-7 rounded-md cursor-pointer"
+                      onClick={() => setViewMode("list")}
+                      title="List View"
+                    >
+                      <List size={14} />
+                    </Button>
+                  </div>
                   <ThemeToggle />
                 </div>
 

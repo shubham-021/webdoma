@@ -82,11 +82,10 @@ export function PlayerSelector({
             <button
               key={player.id}
               onClick={() => onChange(player.id)}
-              className={`p-3 rounded-lg border text-sm font-medium transition-all duration-200 text-left ${
-                value === player.id
+              className={`p-3 cursor-pointer rounded-lg border text-sm font-medium transition-all duration-200 text-left ${value === player.id
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border/50 hover:border-border hover:bg-muted/50 text-muted-foreground"
-              }`}
+                }`}
             >
               <div className="font-medium text-foreground">{player.name}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">

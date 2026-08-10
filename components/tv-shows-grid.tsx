@@ -3,6 +3,7 @@
 import { Tv, Layers, Film } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFileStore } from "@/lib/store";
 
 interface TvShowItem {
   show_title: string;
@@ -23,15 +24,17 @@ interface TvShowsGridProps {
 }
 
 export function TvShowsGrid({ shows, isLoading, searchQuery, onSelectShow }: TvShowsGridProps) {
+  const { viewMode } = useFileStore();
+
   const filtered = shows.filter((s) =>
     s.show_title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div className={viewMode === "list" ? "flex flex-col gap-3" : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"}>
         {Array.from({ length: 12 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-2/3 rounded-xl" />
+          <Skeleton key={i} className={viewMode === "list" ? "h-20 w-full rounded-xl" : "aspect-2/3 rounded-xl"} />
         ))}
       </div>
     );
@@ -48,8 +51,41 @@ export function TvShowsGrid({ shows, isLoading, searchQuery, onSelectShow }: TvS
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+    <div className={viewMode === "list" ? "flex flex-col gap-3" : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"}>
       {filtered.map((show) => (
+        viewMode === "list" ? (
+          <div
+            key={show.show_title}
+            onClick={() => onSelectShow(show.show_title)}
+            className="group flex flex-col sm:flex-row items-stretch sm:items-center gap-4 px-4 py-3 rounded-xl border border-border/40 bg-card/40 hover:border-primary/40 transition-all overflow-hidden relative cursor-pointer"
+          >
+            {/* Poster Thumbnail */}
+            <div className="w-12 h-16 shrink-0 rounded bg-muted/30 overflow-hidden relative border border-border/50">
+              {show.poster_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={show.poster_url} alt={show.show_title} className="object-cover w-full h-full" loading="lazy" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                  <Tv size={20} className="opacity-40" />
+                </div>
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <h3 className="text-sm font-bold tracking-tight text-foreground truncate group-hover:text-primary transition-colors">
+                {show.show_title}
+              </h3>
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-1">
+                {show.start_year && <span>{show.start_year}</span>}
+                {show.start_year && <span className="text-muted-foreground/50">•</span>}
+                <span className="flex items-center gap-1"><Layers size={11} className="text-primary/70" /> {show.season_count} {show.season_count === 1 ? "Season" : "Seasons"}</span>
+                <span className="text-muted-foreground/50">•</span>
+                <span>{show.episode_count} {show.episode_count === 1 ? "Episode" : "Episodes"}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
         <Card
           key={show.show_title}
           onClick={() => onSelectShow(show.show_title)}
@@ -96,6 +132,7 @@ export function TvShowsGrid({ shows, isLoading, searchQuery, onSelectShow }: TvS
             </span>
           </div>
         </Card>
+        )
       ))}
     </div>
   );

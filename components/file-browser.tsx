@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Film, Tv, FolderOpen, Search, PlusCircle } from "lucide-react";
+import { Film, Tv, FolderOpen, Search, PlusCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoviesGrid } from "@/components/movies-grid";
@@ -19,7 +19,7 @@ interface FileBrowserProps {
 }
 
 export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
-  const { activeAccountId } = useFileStore();
+  const { activeAccountId, isAddingAccount } = useFileStore();
 
   const [activeTab, setActiveTab] = useState<"movies" | "tv" | "other">("movies");
   const [selectedShowTitle, setSelectedShowTitle] = useState<string | null>(null);
@@ -96,8 +96,9 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
           className="gap-2 cursor-pointer"
           size="lg"
           id="add-first-account"
+          disabled={isAddingAccount}
         >
-          <PlusCircle size={18} />
+          {isAddingAccount ? <Loader2 size={18} className="animate-spin" /> : <PlusCircle size={18} />}
           Add TorBox Account
         </Button>
         <AddAccountForm

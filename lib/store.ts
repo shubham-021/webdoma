@@ -15,6 +15,7 @@ interface FileStoreState {
   directoryCache: Record<string, DirectoryData>;
   currentPath: string;
   isLoading: boolean;
+  isAddingAccount: boolean;
   error: string | null;
   activeAccountId: number | null;
   
@@ -26,6 +27,7 @@ interface FileStoreState {
 
   // Actions
   setActiveAccountId: (accountId: number) => void;
+  setIsAddingAccount: (isAdding: boolean) => void;
   setCurrentPath: (path: string) => void;
   setViewMode: (mode: "grid" | "list") => void;
   setSearchQuery: (query: string) => void;
@@ -40,6 +42,7 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   directoryCache: {},
   currentPath: "/",
   isLoading: false,
+  isAddingAccount: false,
   error: null,
   activeAccountId: null,
   
@@ -49,6 +52,7 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   sortOrder: "asc",
 
   setActiveAccountId: (accountId) => set({ activeAccountId: accountId, currentPath: "/" }),
+  setIsAddingAccount: (isAdding) => set({ isAddingAccount: isAdding }),
   setCurrentPath: (path) => set({ currentPath: path, searchQuery: "" }),
   setViewMode: (mode) => set({ viewMode: mode }),
   setSearchQuery: (query) => set({ searchQuery: query }),

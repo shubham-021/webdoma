@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Key } from "lucide-react";
+import { Loader2, Key, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useFileStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { CardContent, CardDescription } from "@/components/ui/card";
 import {
@@ -26,7 +27,8 @@ interface AddAccountFormProps {
 }
 
 export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const { isAddingAccount, setIsAddingAccount } = useFileStore();
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form fields
@@ -36,7 +38,7 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setIsLoading(true);
+    setIsAddingAccount(true);
 
     try {
       const body = {
@@ -47,7 +49,7 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
       const parsed = addAccountSchema.safeParse(body);
       if (!parsed.success) {
         setError(parsed.error.issues[0].message);
-        setIsLoading(false);
+        setIsAddingAccount(false);
         return;
       }
 
@@ -72,7 +74,7 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
     } catch {
       setError("Network error. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsAddingAccount(false);
     }
   };
 
@@ -98,7 +100,7 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
                 placeholder="your@email.com"
                 value={torboxEmail}
                 onChange={(e) => setTorboxEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={isAddingAccount}
                 autoComplete="email"
                 required
               />
@@ -108,16 +110,25 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
               <label htmlFor="torbox-password" className="text-sm font-medium">
                 TorBox Password
               </label>
-              <Input
-                id="torbox-password"
-                type="password"
-                placeholder="Your TorBox password"
-                value={torboxPassword}
-                onChange={(e) => setTorboxPassword(e.target.value)}
-                disabled={isLoading}
-                autoComplete="off"
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="torbox-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Your TorBox password"
+                  value={torboxPassword}
+                  onChange={(e) => setTorboxPassword(e.target.value)}
+                  disabled={isAddingAccount}
+                  autoComplete="off"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 cursor-pointer top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
 
@@ -129,10 +140,10 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
 
             <Button
               type="submit"
-              className="w-full"
-              disabled={isLoading}
+              className="w-full cursor-pointer"
+              disabled={isAddingAccount}
             >
-              {isLoading ? (
+              {isAddingAccount ? (
                 <>
                   <Loader2 className="animate-spin mr-2" size={18} />
                   Adding & Syncing Remote...

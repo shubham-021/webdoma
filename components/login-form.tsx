@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, LogIn, UserPlus } from "lucide-react";
+import { Loader2, LogIn, UserPlus, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,8 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Login fields
   const [loginUsername, setLoginUsername] = useState("");
@@ -93,7 +95,7 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
   return (
     <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl shadow-primary/5">
       <CardHeader className="text-center space-y-2">
-        <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mb-2">
+        <div className="mx-auto w-12 h-12 rounded-xl bg-linear-to-br from-primary to-primary/60 flex items-center justify-center mb-2">
           <span className="text-2xl font-bold text-primary-foreground">D</span>
         </div>
         <CardTitle className="text-2xl font-bold tracking-tight">
@@ -141,16 +143,25 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
                   <label htmlFor="login-password" className="text-sm font-medium">
                     Password
                   </label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    disabled={isLoading}
-                    autoComplete="current-password"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="**********"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      disabled={isLoading}
+                      autoComplete="current-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 cursor-pointer -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -181,18 +192,27 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
                   <label htmlFor="reg-password" className="text-sm font-medium">
                     Password
                   </label>
-                  <Input
-                    id="reg-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    disabled={isLoading}
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    maxLength={100}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="reg-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="**********"
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      disabled={isLoading}
+                      autoComplete="new-password"
+                      required
+                      minLength={8}
+                      maxLength={100}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 cursor-pointer -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     At least 8 characters
                   </p>
@@ -201,16 +221,25 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
                   <label htmlFor="reg-confirm-password" className="text-sm font-medium">
                     Confirm Password
                   </label>
-                  <Input
-                    id="reg-confirm-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={regConfirmPassword}
-                    onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    disabled={isLoading}
-                    autoComplete="new-password"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="reg-confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="**********"
+                      value={regConfirmPassword}
+                      onChange={(e) => setRegConfirmPassword(e.target.value)}
+                      disabled={isLoading}
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute cursor-pointer right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden"
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -239,8 +268,8 @@ export function LoginForm({ onSuccess }: LoginFormProps = {}) {
                   ? "Signing in..."
                   : "Creating account..."
                 : authMode === "login"
-                ? "Sign In"
-                : "Create Account"}
+                  ? "Sign In"
+                  : "Create Account"}
             </Button>
           </form>
         </Tabs>
