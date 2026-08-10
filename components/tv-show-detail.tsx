@@ -23,6 +23,8 @@ interface Episode {
   episode_title: string;
   episode_overview?: string;
   still_url?: string;
+  percent?: number;
+  completed?: boolean;
 }
 
 interface Season {
@@ -331,9 +333,8 @@ export function TvShowDetail({ showTitle, playerProtocol, onBack }: TvShowDetail
                 </div>
                 
                 <WatchedProgressBar
-                  accountId={ep.account_id}
-                  torrentId={ep.torrent_id}
-                  fileId={ep.file_id}
+                  percent={ep.percent ?? null}
+                  completed={ep.completed}
                 />
               </div>
             ) : (

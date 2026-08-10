@@ -25,6 +25,8 @@ export async function GET() {
       size: row.size,
       sizeFormatted: formatBytes(row.size || 0),
       mime_type: row.mime_type,
+      percent: (!row.duration_seconds || row.duration_seconds <= 0) ? 0 : Math.min(100, Math.round((row.position_seconds / row.duration_seconds) * 100)),
+      completed: !!row.completed,
     }));
 
     return NextResponse.json({ items });

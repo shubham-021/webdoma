@@ -741,10 +741,15 @@ export function getMoviesForUser(userId: number) {
            m.year         AS media_year,
            m.poster_url   AS media_poster_url,
            m.backdrop_url AS media_backdrop_url,
-           m.overview     AS media_overview
+           m.overview     AS media_overview,
+           w.position_seconds,
+           w.duration_seconds,
+           w.completed,
+           w.hidden
          FROM remote_list_cache r
          JOIN user_accounts ua ON r.account_id = ua.account_id
          LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
+         LEFT JOIN user_watched w ON w.user_id = ua.user_id AND w.account_id = r.account_id AND w.torrent_id = r.torrent_id AND w.file_id = r.file_id
          WHERE ua.user_id = ? AND r.media_type = 'movie'
          ORDER BY COALESCE(m.title, r.raw_title, r.filename) ASC`
       )
@@ -827,11 +832,16 @@ export function getTvShowDetailsForUser(userId: number, showTitle: string) {
            m.overview     AS show_overview,
            e.episode_title,
            e.overview     AS episode_overview,
-           e.still_url    AS episode_still_url
+           e.still_url    AS episode_still_url,
+           w.position_seconds,
+           w.duration_seconds,
+           w.completed,
+           w.hidden
          FROM remote_list_cache r
          JOIN user_accounts ua ON r.account_id = ua.account_id
          LEFT JOIN media m ON r.tmdb_id = m.tmdb_id
          LEFT JOIN tv_episodes e ON (r.tmdb_id = e.show_tmdb_id AND r.season_number = e.season_number AND r.episode_number = e.episode_number)
+         LEFT JOIN user_watched w ON w.user_id = ua.user_id AND w.account_id = r.account_id AND w.torrent_id = r.torrent_id AND w.file_id = r.file_id
          WHERE ua.user_id = ? AND r.media_type = 'tv' AND LOWER(COALESCE(m.title, r.show_title, r.raw_title)) = LOWER(?)
          ORDER BY r.season_number ASC, r.episode_number ASC`
       )
@@ -859,9 +869,14 @@ export function getOtherFilesForUser(userId: number) {
            r.short_name,
            r.size,
            r.mime_type,
-           r.synced_at
+           r.synced_at,
+           w.position_seconds,
+           w.duration_seconds,
+           w.completed,
+           w.hidden
          FROM remote_list_cache r
          JOIN user_accounts ua ON r.account_id = ua.account_id
+         LEFT JOIN user_watched w ON w.user_id = ua.user_id AND w.account_id = r.account_id AND w.torrent_id = r.torrent_id AND w.file_id = r.file_id
          WHERE ua.user_id = ? AND (r.media_type = 'other' OR r.media_type IS NULL)
          ORDER BY r.filename ASC`
       )

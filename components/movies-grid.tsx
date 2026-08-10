@@ -24,6 +24,8 @@ interface MovieItem {
   poster_url?: string;
   backdrop_url?: string;
   overview?: string;
+  percent?: number;
+  completed?: boolean;
 }
 
 interface MoviesGridProps {
@@ -205,9 +207,8 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
             </div>
             
             <WatchedProgressBar
-              accountId={movie.account_id}
-              torrentId={movie.torrent_id}
-              fileId={movie.file_id}
+              percent={movie.percent ?? null}
+              completed={movie.completed}
             />
           </div>
         ) : (
@@ -297,9 +298,8 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
 
             {/* Resume progress bar at the bottom of the card */}
             <WatchedProgressBar
-              accountId={movie.account_id}
-              torrentId={movie.torrent_id}
-              fileId={movie.file_id}
+              percent={movie.percent ?? null}
+              completed={movie.completed}
             />
           </div>
         </Card>

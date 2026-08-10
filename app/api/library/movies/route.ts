@@ -32,6 +32,8 @@ export async function GET() {
       backdrop_url: row.media_backdrop_url,
       overview: row.media_overview,
       synced_at: row.synced_at,
+      percent: (!row.duration_seconds || row.duration_seconds <= 0) ? 0 : Math.min(100, Math.round((row.position_seconds / row.duration_seconds) * 100)),
+      completed: !!row.completed,
     }));
 
     return NextResponse.json({ items });

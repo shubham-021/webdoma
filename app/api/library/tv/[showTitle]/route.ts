@@ -56,6 +56,8 @@ export async function GET(
         episode_title: row.episode_title || `Episode ${row.episode_number ?? 1}`,
         episode_overview: row.episode_overview,
         still_url: row.episode_still_url,
+        percent: (!row.duration_seconds || row.duration_seconds <= 0) ? 0 : Math.min(100, Math.round((row.position_seconds / row.duration_seconds) * 100)),
+        completed: !!row.completed,
       });
     }
 

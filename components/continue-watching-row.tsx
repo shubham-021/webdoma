@@ -30,9 +30,17 @@ export function ContinueWatchingRow({ playerProtocol }: ContinueWatchingRowProps
 
   useEffect(() => {
     load();
-    window.addEventListener("focus", load);
+    let timeoutId: NodeJS.Timeout;
+    const onFocus = () => {
+      // Add a small delay so the player's final progress save can reach the backend
+      // before we fetch the new continue watching list.
+      timeoutId = setTimeout(load, 500);
+    };
+
+    window.addEventListener("focus", onFocus);
     return () => {
-      window.removeEventListener("focus", load);
+      clearTimeout(timeoutId);
+      window.removeEventListener("focus", onFocus);
     };
   }, [load]);
 
@@ -84,10 +92,12 @@ export function ContinueWatchingRow({ playerProtocol }: ContinueWatchingRowProps
 
   return (
     <div>
-      <h2 className="text-lg font-display font-bold tracking-wide text-foreground mb-3 flex items-center gap-2">
-        <Play size={18} className="text-primary" />
-        Continue Watching
-      </h2>
+      <div className="mb-4 inline-flex items-center bg-muted p-1 rounded-xl shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]">
+        <div className="flex items-center gap-2 text-primary px-3 py-1.5 rounded-lg text-sm font-semibold cursor-default">
+          <Play size={15} />
+          <span>Continue Watching</span>
+        </div>
+      </div>
       <div className={viewMode === "list" ? "flex flex-col gap-3" : "flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin"}>
         {items.map((item) => (
           viewMode === "list" ? (
@@ -101,7 +111,7 @@ export function ContinueWatchingRow({ playerProtocol }: ContinueWatchingRowProps
                   playerProtocol,
                 })
               }
-              className="group flex flex-col sm:flex-row items-stretch sm:items-center gap-4 px-4 py-3 rounded-xl border border-border/40 bg-card/40 hover:border-primary/40 transition-all overflow-hidden relative cursor-pointer"
+              className="group flex flex-col sm:flex-row items-stretch sm:items-center gap-4 px-4 py-3 rounded-xl border border-border/40 bg-card/40 hover:bg-muted/40 hover:shadow-md transition-all duration-300 overflow-hidden relative cursor-pointer"
             >
               {/* Thumbnail */}
               <div className="w-24 h-14 sm:w-20 sm:h-12 shrink-0 rounded bg-muted/30 overflow-hidden relative border border-border/50">
