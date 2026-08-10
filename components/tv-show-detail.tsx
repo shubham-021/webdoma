@@ -5,7 +5,7 @@ import { ArrowLeft, Play, Download, Copy, Tv, Layers, Film, Loader2, Users } fro
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { buildPlayerURL } from "@/lib/players";
+import { launchPlayback } from "@/lib/client-play";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Episode {
@@ -106,41 +106,11 @@ export function TvShowDetail({ showTitle, playerProtocol, onBack }: TvShowDetail
   }, []);
 
   const handleStream = useCallback(async (ep: Episode) => {
-    const cdnUrl = await fetchCdnLink(ep.torrent_id, ep.file_id, ep.account_id);
-    if (!cdnUrl) return;
-
-    if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
-      try {
-        const daemonRes = await fetch("http://localhost:9070/play", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
-        });
-
-        if (daemonRes.ok) {
-          toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-            description: "CDN stream active."
-          });
-          return;
-        }
-        throw new Error("Daemon returned error status");
-      } catch {
-        toast.error("Local daemon connection failed", {
-          description: "Ensure Relay Aemond is running on port 9070 on your machine."
-        });
-        return;
-      }
-    }
-
-    const playerUrl = buildPlayerURL(playerProtocol, cdnUrl);
-    const link = document.createElement("a");
-    link.href = playerUrl;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-      description: "CDN stream active."
+    await launchPlayback({
+      torrentId: ep.torrent_id,
+      fileId: ep.file_id,
+      accountId: ep.account_id,
+      playerProtocol,
     });
   }, [playerProtocol]);
 

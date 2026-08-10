@@ -9,6 +9,7 @@ import { TvShowsGrid } from "@/components/tv-shows-grid";
 import { TvShowDetail } from "@/components/tv-show-detail";
 import { OtherFilesView } from "@/components/other-files-view";
 import { AddAccountForm } from "@/components/add-account-form";
+import { ContinueWatchingRow } from "@/components/continue-watching-row";
 import { toast } from "sonner";
 import { useFileStore } from "@/lib/store";
 
@@ -110,6 +111,11 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {!selectedShowTitle && (
+        <div className="shrink-0 px-4 md:px-6 pt-4 bg-background/40 backdrop-blur-md z-10 relative">
+          <ContinueWatchingRow playerProtocol={playerProtocol} />
+        </div>
+      )}
       {/* Top Navigation Control Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-background/40 backdrop-blur-md shrink-0 z-10 relative">
         {/* Library Category Tabs */}
