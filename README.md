@@ -5,6 +5,10 @@
   <img src="https://img.shields.io/badge/Bun-black?style=for-the-badge&logo=bun&logoColor=white" alt="Bun" />
 </p>
 
+<p align="center">
+  <img src="./preview.png" alt="Preview" width="100%" />
+</p>
+
 Relay is a high-performance web interface designed for browsing, streaming, and downloading files directly from your TorBox cloud storage. It works in tandem with a specialized local daemon to bypass browser constraints, handing off media streams directly to native desktop players for an optimal, high-quality playback experience.
 
 ## Environment Configuration
