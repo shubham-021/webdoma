@@ -19,7 +19,7 @@ export interface UserAccount {
 // Session data stored in encrypted iron-session cookie
 export interface SessionData {
   userId?: number;           // Application user ID
-  playerProtocol: string;    // default: "vlc"
+  playerProtocol: string;    // default: "mpv"
 }
 
 // TorBox account response for client-side display
@@ -142,4 +142,12 @@ export interface SyncResponse {
   success: boolean;
   files_synced?: number;
   error?: string;
+}
+
+export interface UserSettings {
+  tmdb_api_key?: string;
+  syncplay_host?: string;
+  syncplay_room?: string;
+  syncplay_user?: string;
+  syncplay_pass?: string;
 }

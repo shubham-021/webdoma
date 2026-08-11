@@ -40,6 +40,25 @@ try {
       // No existing accounts table — fresh install
     }
 
+    // Schema Migration: users table
+    try {
+      const userTableInfo = globalForDb.__domaDb
+        .query("PRAGMA table_info(users)")
+        .all() as { name: string }[];
+      const userColumnNames = userTableInfo.map((c) => c.name);
+
+      if (!userColumnNames.includes("tmdb_api_key")) {
+        console.log("[DB Migration] Adding user settings columns to users table...");
+        globalForDb.__domaDb.query("ALTER TABLE users ADD COLUMN tmdb_api_key TEXT").run();
+        globalForDb.__domaDb.query("ALTER TABLE users ADD COLUMN syncplay_host TEXT").run();
+        globalForDb.__domaDb.query("ALTER TABLE users ADD COLUMN syncplay_room TEXT").run();
+        globalForDb.__domaDb.query("ALTER TABLE users ADD COLUMN syncplay_user TEXT").run();
+        globalForDb.__domaDb.query("ALTER TABLE users ADD COLUMN syncplay_pass TEXT").run();
+      }
+    } catch (_) {
+      // Ignored
+    }
+
     // users
     globalForDb.__domaDb
       .query(
@@ -48,6 +67,11 @@ try {
         id        INTEGER PRIMARY KEY AUTOINCREMENT,
         username  TEXT    NOT NULL UNIQUE,
         password  TEXT    NOT NULL,          -- bcrypt hash
+        tmdb_api_key TEXT,
+        syncplay_host TEXT,
+        syncplay_room TEXT,
+        syncplay_user TEXT,
+        syncplay_pass TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { FileItem, BreadcrumbItem } from "@/lib/types";
+import type { FileItem, BreadcrumbItem, UserSettings } from "@/lib/types";
 
 export type SortKey = "name" | "size" | "date";
 export type SortOrder = "asc" | "desc";
@@ -18,6 +18,7 @@ interface FileStoreState {
   isAddingAccount: boolean;
   error: string | null;
   activeAccountId: number | null;
+  userSettings: UserSettings | null;
   
   // UI State
   viewMode: "grid" | "list";
@@ -35,6 +36,7 @@ interface FileStoreState {
   setSortOrder: (order: SortOrder) => void;
   toggleSort: () => void;
   fetchFiles: (path: string, forceRefresh?: boolean) => Promise<void>;
+  fetchUserSettings: () => Promise<void>;
   clearCache: () => void;
 }
 
@@ -45,6 +47,7 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   isAddingAccount: false,
   error: null,
   activeAccountId: null,
+  userSettings: null,
   
   viewMode: "grid",
   searchQuery: "",
@@ -126,4 +129,16 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   },
 
   clearCache: () => set({ directoryCache: {}, currentPath: "/" }),
+
+  fetchUserSettings: async () => {
+    try {
+      const res = await fetch("/api/user/settings");
+      if (res.ok) {
+        const data = await res.json();
+        set({ userSettings: data });
+      }
+    } catch (e) {
+      console.error("Failed to fetch user settings", e);
+    }
+  }
 }));

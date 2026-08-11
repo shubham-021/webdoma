@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     // Save user ID to session
     const session = await getSession();
     session.userId = userId;
-    session.playerProtocol = "vlc";
+    session.playerProtocol = "mpv";
     await session.save();
 
     return NextResponse.json({ success: true, accounts: [] });

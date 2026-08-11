@@ -13,13 +13,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { AddAccountForm } from "@/components/add-account-form";
+import { UserSettingsForm } from "@/components/user-settings-form";
 import { toast } from "sonner";
 import { Loader2, PlusCircle, RefreshCw, Trash2, User } from "lucide-react";
 import type { TorBoxAccount } from "@/lib/types";
 import { useFileStore } from "@/lib/store";
 
 export default function AccountsPage() {
-  const { isAddingAccount } = useFileStore();
+  const { isAddingAccount, userSettings } = useFileStore();
   const [accounts, setAccounts] = useState<TorBoxAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
@@ -50,6 +51,12 @@ export default function AccountsPage() {
     const accountId = syncConfirmAccountId;
     
     setSyncConfirmAccountId(null);
+    
+    if (!userSettings?.tmdb_api_key) {
+      toast.error("TMDB API Key is missing. Please configure it in User Settings first.");
+      return;
+    }
+
     setIsSyncing(accountId);
     try {
       const res = await fetch("/api/sync", {
@@ -182,6 +189,8 @@ export default function AccountsPage() {
               )}
             </CardContent>
           </Card>
+          
+          <UserSettingsForm />
         </div>
         
         <AddAccountForm 

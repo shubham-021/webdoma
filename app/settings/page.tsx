@@ -21,7 +21,7 @@ import {
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [playerProtocol, setPlayerProtocol] = useState("vlc");
+  const [playerProtocol, setPlayerProtocol] = useState("mpv");
   const [customTemplate, setCustomTemplate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [accentHex, setAccentHex] = useState(DEFAULT_ACCENT);

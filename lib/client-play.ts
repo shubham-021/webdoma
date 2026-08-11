@@ -17,6 +17,8 @@ export async function launchPlayback(params: {
 }): Promise<{ ok: boolean; error?: string }> {
   const { torrentId, fileId, accountId, playerProtocol } = params;
 
+  const toastId = toast.loading(`Preparing to launch ${playerProtocol.toUpperCase()}...`);
+
   // 1. CDN link + play token
   let cdnUrl: string;
   let playToken: string;
@@ -33,13 +35,13 @@ export async function launchPlayback(params: {
     const data = await res.json();
     if (!res.ok || !data.url) {
       const message = (data as { error?: string }).error || "Failed to get CDN link";
-      toast.error(message);
+      toast.error(message, { id: toastId });
       return { ok: false, error: message };
     }
     cdnUrl = data.url;
     playToken = data.playToken;
   } catch {
-    toast.error("Network error");
+    toast.error("Network error while resolving CDN link", { id: toastId });
     return { ok: false, error: "Network error" };
   }
 
@@ -71,49 +73,37 @@ export async function launchPlayback(params: {
     // ignore — start from the beginning
   }
 
-  // 3. Launch
-  if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
-    try {
-      const daemonRes = await fetch("http://localhost:9070/play", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          player: playerProtocol,
-          url: cdnUrl,
-          startTime,
-          torrent_id: torrentId,
-          file_id: fileId,
-          account_id: accountId,
-          token: playToken,
-          reportUrl: `${window.location.origin}/api/progress`,
-        }),
-      });
+  // 3. Launch via local daemon exclusively
+  try {
+    const daemonRes = await fetch("http://localhost:9070/play", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        player: playerProtocol,
+        url: cdnUrl,
+        startTime,
+        torrent_id: torrentId,
+        file_id: fileId,
+        account_id: accountId,
+        token: playToken,
+        reportUrl: `${window.location.origin}/api/progress`,
+      }),
+    });
 
-      if (daemonRes.ok) {
-        toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-          description: "CDN stream active",
-        });
-        return { ok: true };
-      }
-      throw new Error("Daemon returned error status");
-    } catch {
-      toast.error("Local daemon connection failed", {
-        description: "Ensure Relay Aemond is running on port 9070 on your machine.",
+    if (daemonRes.ok) {
+      toast.success(`Launched ${playerProtocol.toUpperCase()}`, {
+        id: toastId,
+        description: "Playback has started successfully",
       });
-      return { ok: false, error: "Local daemon connection failed" };
+      return { ok: true };
     }
+    
+    throw new Error("Daemon returned error status");
+  } catch (error) {
+    toast.error("Local daemon connection failed", {
+      id: toastId,
+      description: "Ensure Relay Aemond is running on port 9070 on your machine.",
+    });
+    return { ok: false, error: "Local daemon connection failed" };
   }
-
-  // Protocol handler path (potplayer, infuse, etc.)
-  const playerUrl = buildPlayerURL(playerProtocol, cdnUrl);
-  const link = document.createElement("a");
-  link.href = playerUrl;
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-    description: "CDN stream active",
-  });
-  return { ok: true };
 }

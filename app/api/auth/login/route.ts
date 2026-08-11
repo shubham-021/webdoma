@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     // Save user ID to session
     const session = await getSession();
     session.userId = user.id;
-    session.playerProtocol = session.playerProtocol || "vlc";
+    session.playerProtocol = session.playerProtocol || "mpv";
     await session.save();
 
     // Fetch associated TorBox accounts

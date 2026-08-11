@@ -4,7 +4,7 @@ const path = require('path');
 const http = require('http');
 const fs = require('fs');
 
-Menu.setApplicationMenu(null);
+// Menu.setApplicationMenu(null); // Removed to allow standard shortcuts (Cmd+C/V) on macOS
 
 app.name = 'Relay';
 let nextProcess = null;

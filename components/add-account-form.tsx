@@ -27,7 +27,7 @@ interface AddAccountFormProps {
 }
 
 export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountFormProps) {
-  const { isAddingAccount, setIsAddingAccount } = useFileStore();
+  const { isAddingAccount, setIsAddingAccount, userSettings } = useFileStore();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +38,12 @@ export function AddAccountForm({ open, onOpenChange, onSuccess }: AddAccountForm
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    
+    if (!userSettings?.tmdb_api_key) {
+      setError("TMDB API Key is missing. Please configure it in User Settings first.");
+      return;
+    }
+
     setIsAddingAccount(true);
 
     try {

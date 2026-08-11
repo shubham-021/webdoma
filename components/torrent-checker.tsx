@@ -87,17 +87,17 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
   const [addedHashes, setAddedHashes] = useState<Set<string>>(new Set());
   const [expandedHash, setExpandedHash] = useState<string | null>(null);
 
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<number[]>([]);
 
   useEffect(() => {
-    if (!selectedAccountId) {
+    if (selectedAccountIds.length === 0) {
       if (activeAccountId) {
-        setSelectedAccountId(activeAccountId);
+        setSelectedAccountIds([activeAccountId]);
       } else if (accounts.length > 0) {
-        setSelectedAccountId(accounts[0].id);
+        setSelectedAccountIds([accounts[0].id]);
       }
     }
-  }, [activeAccountId, accounts, selectedAccountId]);
+  }, [activeAccountId, accounts, selectedAccountIds]);
 
   const reset = useCallback(() => {
     setStep("input");
@@ -134,8 +134,15 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
 
         setMagnetMap({ [hash]: magnetInput.trim() });
 
+        const checkAccountId = activeAccountId || accounts?.[0]?.id;
+        if (!checkAccountId) {
+          toast.error("No account available for checking cache");
+          setStep("input");
+          return;
+        }
+
         const params = new URLSearchParams({ hash });
-        if (selectedAccountId) params.set("account_id", selectedAccountId.toString());
+        params.set("account_id", checkAccountId.toString());
 
         const res = await fetch(`/api/torrent/check-cache?${params}`);
         if (res.status === 401) {
@@ -167,12 +174,19 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
         });
         setMagnetMap(newMagnetMap);
 
+        const checkAccountId = activeAccountId || accounts?.[0]?.id;
+        if (!checkAccountId) {
+          toast.error("No account available for checking cache");
+          setStep("input");
+          return;
+        }
+
         const res = await fetch("/api/torrent/check-cache", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             hashes,
-            account_id: selectedAccountId,
+            account_id: checkAccountId,
           }),
         });
 
@@ -200,7 +214,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
       toast.error(error instanceof Error ? error.message : "Failed to check cache");
       setStep("input");
     }
-  }, [magnetInput, mode, selectedAccountId]);
+  }, [magnetInput, mode, activeAccountId, accounts]);
 
   const handleAddTorrent = useCallback(
     async (hash: string) => {
@@ -213,39 +227,47 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
       setAddingHash(hash);
 
       try {
+        if (selectedAccountIds.length === 0) {
+          toast.error("Please select at least one account");
+          return;
+        }
+
         // Grab the cached file list from the cache-check results
         const cachedInfo = results[hash];
         const cachedFiles = cachedInfo?.files || [];
 
-        const res = await fetch("/api/torrent/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            magnet,
-            account_id: selectedAccountId,
-            cached_files: cachedFiles,
-            torrent_hash: hash,
-          }),
-        });
+        let totalInserted = 0;
+        for (const accountId of selectedAccountIds) {
+          const res = await fetch("/api/torrent/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              magnet,
+              account_id: accountId,
+              cached_files: cachedFiles,
+              torrent_hash: hash,
+            }),
+          });
 
-        if (res.status === 401) {
-          window.location.href = "/login";
-          return;
-        }
+          if (res.status === 401) {
+            window.location.href = "/login";
+            return;
+          }
 
-        const data = await res.json();
+          const data = await res.json();
 
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || data.detail || "Failed to add torrent");
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || data.detail || `Failed to add torrent to account ${accountId}`);
+          }
+          totalInserted += data.files_inserted || 0;
         }
 
         setAddedHashes((prev) => new Set(prev).add(hash));
 
-        const insertedCount = data.files_inserted || 0;
-        if (insertedCount > 0) {
-          toast.success(`Torrent added! ${insertedCount} file${insertedCount > 1 ? "s" : ""} indexed.`);
+        if (totalInserted > 0) {
+          toast.success(`Torrent added! ${totalInserted} file${totalInserted > 1 ? "s" : ""} indexed across selected accounts.`);
         } else {
-          toast.success("Torrent added to your account!");
+          toast.success("Torrent added to selected accounts!");
         }
 
         // Lightweight refresh — just re-read from DB, no full TorBox API re-sync
@@ -257,7 +279,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
         setAddingHash(null);
       }
     },
-    [magnetMap, selectedAccountId, results]
+    [magnetMap, selectedAccountIds, results]
   );
 
 
@@ -327,22 +349,7 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
                 </button>
               </div>
 
-              {accounts && accounts.length > 0 && (
-                <div className="relative w-full">
-                  <select
-                    value={selectedAccountId || ""}
-                    onChange={(e) => setSelectedAccountId(Number(e.target.value))}
-                    className="w-full p-2.5 pr-8 rounded-xl bg-muted/30 border border-border/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 appearance-none cursor-pointer"
-                  >
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id} className="bg-background">
-                        {acc.torbox_email}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                </div>
-              )}
+
 
               <div className="relative">
                 <textarea
@@ -411,9 +418,30 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
                 ) : (
                   <XCircle size={16} className="text-red-400 shrink-0" />
                 )}
-                <span className="text-xs font-semibold">
+                <span className="text-xs font-semibold flex-1">
                   {cachedCount} of {totalCount} torrent{totalCount > 1 ? "s" : ""} cached
                 </span>
+                {accounts && accounts.length > 1 && (
+                  <div className="relative">
+                    <select
+                      multiple
+                      size={1}
+                      value={selectedAccountIds.map(String)}
+                      onChange={(e) => {
+                        const values = Array.from(e.target.selectedOptions, option => Number(option.value));
+                        setSelectedAccountIds(values);
+                      }}
+                      className="text-xs p-1 pr-6 rounded bg-background border border-border cursor-pointer focus:outline-none appearance-none"
+                    >
+                      {accounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.torbox_email}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+                  </div>
+                )}
               </div>
 
               {Object.entries(results).map(([hash, info]) => (
