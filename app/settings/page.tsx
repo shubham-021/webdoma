@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { LogOut, Info, Save, Loader2, Palette, Check, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   ACCENT_PRESETS,
   DEFAULT_ACCENT,
@@ -138,11 +139,12 @@ export default function SettingsPage() {
                       key={preset.id}
                       title={preset.label}
                       onClick={() => handleSetAccent(preset.hex)}
-                      className={`relative w-9 h-9 rounded-full transition-all duration-200 cursor-pointer ${
+                      className={cn(
+                        "relative w-9 h-9 rounded-full transition-all duration-200 cursor-pointer",
                         active
                           ? "ring-2 ring-foreground ring-offset-2 ring-offset-background scale-110"
                           : "ring-1 ring-border/60 hover:scale-110"
-                      }`}
+                      )}
                       style={{ backgroundColor: preset.hex }}
                       aria-label={`Set accent to ${preset.label}`}
                     >
@@ -158,11 +160,12 @@ export default function SettingsPage() {
 
                 {/* Custom color circle */}
                 <label
-                  className={`relative w-9 h-9 rounded-full cursor-pointer transition-all duration-200 ${
+                  className={cn(
+                    "relative w-9 h-9 rounded-full cursor-pointer transition-all duration-200",
                     !ACCENT_PRESETS.some((p) => p.hex === accentHex)
                       ? "ring-2 ring-foreground ring-offset-2 ring-offset-background scale-110"
                       : "ring-1 ring-border/60 hover:scale-110"
-                  }`}
+                  )}
                   style={{
                     background:
                       "conic-gradient(#ef4444, #f59e0b, #22c55e, #3b82f6, #8b5cf6, #ec4899, #ef4444)",

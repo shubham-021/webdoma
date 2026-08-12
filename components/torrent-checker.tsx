@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { useFileStore } from "@/lib/store";
 import { toast } from "sonner";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes, cn } from "@/lib/utils";
 
 type CheckMode = "single" | "bulk";
 
@@ -331,19 +331,23 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
               <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-xl border border-border/40 self-start">
                 <button
                   onClick={() => setMode("single")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${mode === "single"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                    }`}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer",
+                    mode === "single"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
                 >
                   Single
                 </button>
                 <button
                   onClick={() => setMode("bulk")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer ${mode === "bulk"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                    }`}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer",
+                    mode === "bulk"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
                 >
                   Bulk
                 </button>

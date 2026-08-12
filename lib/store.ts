@@ -25,6 +25,7 @@ interface FileStoreState {
   searchQuery: string;
   sortKey: SortKey;
   sortOrder: SortOrder;
+  sidebarCollapsed: boolean;
 
   // Actions
   setActiveAccountId: (accountId: number) => void;
@@ -34,6 +35,7 @@ interface FileStoreState {
   setSearchQuery: (query: string) => void;
   setSortKey: (key: SortKey) => void;
   setSortOrder: (order: SortOrder) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSort: () => void;
   fetchFiles: (path: string, forceRefresh?: boolean) => Promise<void>;
   fetchUserSettings: () => Promise<void>;
@@ -53,6 +55,7 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   searchQuery: "",
   sortKey: "name",
   sortOrder: "asc",
+  sidebarCollapsed: false,
 
   setActiveAccountId: (accountId) => set({ activeAccountId: accountId, currentPath: "/" }),
   setIsAddingAccount: (isAdding) => set({ isAddingAccount: isAdding }),
@@ -61,6 +64,7 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSortKey: (key) => set({ sortKey: key }),
   setSortOrder: (order) => set({ sortOrder: order }),
+  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   toggleSort: () => {
     const { sortKey, sortOrder } = get();
     const keys: SortKey[] = ["name", "size", "date"];

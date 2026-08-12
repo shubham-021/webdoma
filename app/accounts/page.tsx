@@ -112,15 +112,15 @@ export default function AccountsPage() {
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
       <main className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Account Manager</h1>
-              <p className="text-muted-foreground mt-1">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Account Manager</h1>
+              <p className="text-muted-foreground mt-1 text-sm">
                 Manage your TorBox accounts
               </p>
             </div>
-            <Button onClick={() => setIsAddAccountOpen(true)} className="gap-2" disabled={isAddingAccount}>
+            <Button onClick={() => setIsAddAccountOpen(true)} className="gap-2 shrink-0 self-start sm:self-auto" size="sm" disabled={isAddingAccount}>
               {isAddingAccount ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />} Add Account
             </Button>
           </div>
@@ -140,31 +140,31 @@ export default function AccountsPage() {
               ) : (
                 <div className="divide-y divide-border/50">
                   {accounts.map((account) => (
-                    <div key={account.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                          <User size={20} />
+                    <div key={account.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                          <User size={18} />
                         </div>
-                        <div>
-                          <p className="font-semibold">{account.torbox_email}</p>
-                          <p className="text-xs text-muted-foreground">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm sm:text-base truncate">{account.torbox_email}</p>
+                          <p className="text-[11px] sm:text-xs text-muted-foreground">
                             Last synced: {account.last_synced_at ? new Date(account.last_synced_at + 'Z').toLocaleString() : "Never"}
                           </p>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setSyncConfirmAccountId(account.id)}
                           disabled={isSyncing !== null}
-                          className="gap-2"
+                          className="gap-1.5 text-xs sm:text-sm"
                         >
                           {isSyncing === account.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                           ) : (
-                            <RefreshCw className="h-4 w-4" />
+                            <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           )}
                           Sync
                         </Button>
@@ -173,12 +173,12 @@ export default function AccountsPage() {
                           size="sm"
                           onClick={() => handleDeleteAccount(account.id)}
                           disabled={isDeleting !== null || isSyncing !== null}
-                          className="gap-2"
+                          className="gap-1.5 text-xs sm:text-sm"
                         >
                           {isDeleting === account.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                           ) : (
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           )}
                           Delete
                         </Button>

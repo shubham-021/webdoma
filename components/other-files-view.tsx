@@ -1,12 +1,29 @@
 "use client";
 
-import { FileText, Play, Download, Copy, FolderOpen, Users } from "lucide-react";
+import { FileText, Play, Download, Copy, FolderOpen, Users, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { buildPlayerURL } from "@/lib/players";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+function useNarrow(breakpoint = 640) {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const check = () => setNarrow(window.innerWidth < breakpoint);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [breakpoint]);
+  return narrow;
+}
 
 interface OtherFile {
   id: number;
@@ -45,6 +62,8 @@ async function fetchCdnLink(torrentId: number, fileId: number, accountId: number
 }
 
 export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol }: OtherFilesViewProps) {
+  const narrow = useNarrow(640);
+
   const filtered = files.filter((f) =>
     f.filename.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -81,8 +100,8 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol }
         }
         throw new Error("Daemon returned error status");
       } catch {
-        toast.error("Local daemon connection failed", { 
-          description: "Ensure Relay Aemond is running on port 9070 on your machine." 
+        toast.error("Local daemon connection failed", {
+          description: "Ensure Relay Aemond is running on port 9070 on your machine."
         });
         return;
       }
@@ -175,45 +194,85 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol }
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Button
-              size="sm"
-              onClick={() => handleStream(file)}
-              className="h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
-            >
-              <Play size={13} className="fill-current" />
-              Open
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={() => handleCopyLink(file)}
-              className="h-8 w-8 text-xs cursor-pointer"
-              title="Copy Link"
-            >
-              <Copy size={13} />
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              onClick={() => handleDownload(file)}
-              className="h-8 w-8 text-xs cursor-pointer"
-              title="Download File"
-            >
-              <Download size={13} />
-            </Button>
-            {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+          {narrow ? (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                size="sm"
+                onClick={() => handleStream(file)}
+                className="h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer px-2.5"
+              >
+                <Play size={13} className="fill-current" />
+                Open
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8 text-xs cursor-pointer"
+                  >
+                    <MoreVertical size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-37.5 bg-popover/95 backdrop-blur-xl border-border/60 shadow-xl rounded-xl p-1">
+                  <DropdownMenuItem onClick={() => handleCopyLink(file)} className="gap-2.5 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium hover:bg-primary/10 focus:bg-primary/10">
+                    <Copy size={14} className="text-muted-foreground" />
+                    Copy link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleDownload(file)} className="gap-2.5 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium hover:bg-emerald-500/10 focus:bg-emerald-500/10">
+                    <Download size={14} className="text-emerald-400" />
+                    Download
+                  </DropdownMenuItem>
+                  {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+                    <DropdownMenuItem onClick={() => handleSyncplay(file)} className="gap-2.5 px-3 py-2 rounded-lg cursor-pointer text-sm font-medium hover:bg-amber-500/10 focus:bg-amber-500/10">
+                      <Users size={14} className="text-amber-400" />
+                      Syncplay
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                size="sm"
+                onClick={() => handleStream(file)}
+                className="h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+              >
+                <Play size={13} className="fill-current" />
+                Open
+              </Button>
               <Button
                 size="icon"
                 variant="outline"
-                onClick={() => handleSyncplay(file)}
-                className="h-8 w-8 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
-                title="Syncplay with friends"
+                onClick={() => handleCopyLink(file)}
+                className="h-8 w-8 text-xs cursor-pointer"
+                title="Copy Link"
               >
-                <Users size={13} />
+                <Copy size={13} />
               </Button>
-            )}
-          </div>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => handleDownload(file)}
+                className="h-8 w-8 text-xs cursor-pointer"
+                title="Download File"
+              >
+                <Download size={13} />
+              </Button>
+              {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => handleSyncplay(file)}
+                  className="h-8 w-8 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                  title="Syncplay with friends"
+                >
+                  <Users size={13} />
+                </Button>
+              )}
+            </div>
+          )}
         </Card>
       ))}
     </div>

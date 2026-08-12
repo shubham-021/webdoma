@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { launchPlayback } from "@/lib/client-play";
 import type { ContinueWatchingItem } from "@/lib/types";
 import { useFileStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 interface ContinueWatchingRowProps {
   playerProtocol: string;
@@ -222,7 +223,7 @@ export function ContinueWatchingRow({ playerProtocol }: ContinueWatchingRowProps
                 </button>
               )}
 
-              <div className={`absolute inset-x-0 bottom-0 bg-linear-to-t from-black via-black/75 to-transparent pl-3 pt-10 pb-3 ${item.media_type === "tv" ? "pr-9" : "pr-3"}`}>
+              <div className={cn("absolute inset-x-0 bottom-0 bg-linear-to-t from-black via-black/75 to-transparent pl-3 pt-10 pb-3", item.media_type === "tv" ? "pr-9" : "pr-3")}>
                 <div className="flex items-baseline gap-1.5 overflow-hidden">
                   <h3 className="text-sm font-display font-bold text-white truncate">
                     {item.title}

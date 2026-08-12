@@ -4,7 +4,7 @@ import {
   Film, Music, Archive, FileText, Image, Subtitles,
   Folder, File, FileCode, FileSpreadsheet, FileImage,
 } from "lucide-react";
-import { getFileType } from "@/lib/utils";
+import { getFileType, cn } from "@/lib/utils";
 
 interface FileIconProps {
   filename: string;
@@ -25,12 +25,12 @@ const FILE_TYPE_ICONS = {
 
 export function FileIcon({ filename, isDirectory, className, size = 20 }: FileIconProps) {
   if (isDirectory) {
-    return <Folder size={size} className={`text-primary ${className || ""}`} />;
+    return <Folder size={size} className={cn("text-primary", className)} />;
   }
 
   const fileType = getFileType(filename);
   const config = FILE_TYPE_ICONS[fileType];
   const Icon = config.icon;
 
-  return <Icon size={size} className={`${config.className} ${className || ""}`} />;
+  return <Icon size={size} className={cn(config.className, className)} />;
 }

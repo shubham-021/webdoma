@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface PlayerSelectorProps {
   value: string;
@@ -82,10 +83,12 @@ export function PlayerSelector({
             <button
               key={player.id}
               onClick={() => onChange(player.id)}
-              className={`p-3 cursor-pointer rounded-lg border text-sm font-medium transition-all duration-200 text-left ${value === player.id
+              className={cn(
+                "p-3 cursor-pointer rounded-lg border text-sm font-medium transition-all duration-200 text-left",
+                value === player.id
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border/50 hover:border-border hover:bg-muted/50 text-muted-foreground"
-                }`}
+              )}
             >
               <div className="font-medium text-foreground">{player.name}</div>
               <div className="text-[10px] text-muted-foreground mt-0.5">

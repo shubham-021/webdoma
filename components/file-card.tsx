@@ -7,6 +7,7 @@ import { FileIcon } from "@/components/file-icon";
 import { FileActions } from "@/components/file-actions";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface FileCardProps {
   item: FileItem;
@@ -46,7 +47,9 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
     return (
       <div
         onClick={handleClick}
-        className={`group flex items-center gap-4 px-4 py-3 rounded-lg border border-transparent transition-all duration-200 hover:bg-muted/50`}
+        className={cn(
+          "group flex items-center gap-4 px-4 py-3 rounded-lg border border-transparent transition-all duration-200 hover:bg-muted/50"
+        )}
       >
         {posterUrl ? (
           <div className="w-10 h-14 rounded shrink-0 overflow-hidden bg-muted/50 border border-border/50 relative shadow-sm">
@@ -95,10 +98,12 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
   return (
     <div
       onClick={handleClick}
-      className={`group relative flex flex-col rounded-xl border border-border/50 bg-card transition-all duration-300 overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 hover:-translate-y-1`}
+      className={cn(
+        "group relative flex flex-col rounded-xl border border-border/50 bg-card transition-all duration-300 overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/30 hover:-translate-y-1"
+      )}
     >
       {/* Poster / Image Section */}
-      <div className="relative aspect-[2/3] w-full bg-muted/30 overflow-hidden">
+      <div className="relative aspect-2/3 w-full bg-muted/30 overflow-hidden">
         {posterUrl ? (
           <img src={posterUrl} alt={displayTitle} className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" loading="lazy" />
         ) : (

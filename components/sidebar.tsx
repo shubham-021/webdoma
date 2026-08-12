@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useFileStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   username?: string;
@@ -19,9 +20,9 @@ interface SidebarProps {
 export function Sidebar({ username = "User" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { viewMode, setViewMode } = useFileStore();
+  const { viewMode, setViewMode, setSidebarCollapsed } = useFileStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsedLocal] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [fetchedUsername, setFetchedUsername] = useState<string>("User");
 
@@ -90,7 +91,11 @@ export function Sidebar({ username = "User" }: SidebarProps) {
             variant="ghost"
             size="icon"
             className="absolute -right-3 top-6 h-6 w-6 rounded-full shadow-sm bg-background hover:bg-accent z-10 flex items-center justify-center"
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={() => {
+              const next = !isCollapsed;
+              setIsCollapsedLocal(next);
+              setSidebarCollapsed(next);
+            }}
           >
             <TextAlignJustify className="size-4" />
           </Button>
@@ -103,10 +108,13 @@ export function Sidebar({ username = "User" }: SidebarProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className={`flex flex-col h-full shrink-0 ${isMobile ? 'w-16' : 'w-56'} overflow-hidden`}
+              className={cn(
+                "flex flex-col h-full shrink-0 overflow-hidden",
+                isMobile ? "w-16" : "w-56"
+              )}
             >
               {/* Logo */}
-              <div className={`p-3 lg:p-4 flex items-center ${collapsedStyle ? 'justify-center' : 'gap-3'} overflow-hidden`}>
+              <div className={cn("p-3 lg:p-4 flex items-center overflow-hidden", collapsedStyle ? "justify-center" : "gap-3")}>
                 <div className="w-9 h-9 rounded-lg bg-primary/60 flex items-center justify-center shrink-0 shadow-inner">
                   <span className="text-lg font-bold font-display text-primary-foreground uppercase">
                     {displayUsername[0]}
@@ -132,10 +140,13 @@ export function Sidebar({ username = "User" }: SidebarProps) {
                       <TooltipTrigger asChild>
                         <Link
                           href={item.href}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                            ? "bg-primary/20 text-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-                            } ${collapsedStyle ? 'justify-center px-0' : ''}`}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                            isActive
+                              ? "bg-primary/20 text-primary shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/30",
+                            collapsedStyle && "justify-center px-0"
+                          )}
                           id={`nav-${item.label.toLowerCase()}`}
                         >
                           <item.icon size={18} className="shrink-0" />
@@ -160,8 +171,8 @@ export function Sidebar({ username = "User" }: SidebarProps) {
 
               {/* Bottom actions */}
               <div className="p-2 space-y-1 overflow-hidden">
-                <div className={`flex items-center px-1 mb-2 ${collapsedStyle ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
-                  <div className={`flex items-center bg-muted/50 rounded-lg p-0.5 ${collapsedStyle ? 'flex-col' : ''}`}>
+                <div className={cn("flex items-center px-1 mb-2", collapsedStyle ? "justify-center flex-col gap-2" : "justify-between")}>
+                  <div className={cn("flex items-center bg-muted/50 rounded-lg p-0.5", collapsedStyle && "flex-col")}>
                     <Button
                       variant={viewMode === "grid" ? "secondary" : "ghost"}
                       size="icon"
@@ -190,7 +201,10 @@ export function Sidebar({ username = "User" }: SidebarProps) {
                       variant="ghost"
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className={`w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 ${collapsedStyle ? 'justify-center px-0' : 'justify-start'}`}
+                      className={cn(
+                        "w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+                        collapsedStyle ? "justify-center px-0" : "justify-start"
+                      )}
                       id="sidebar-logout"
                     >
                       {isLoggingOut ? (
