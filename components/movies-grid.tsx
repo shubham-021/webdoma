@@ -106,27 +106,25 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
 
   const handleSyncplay = useCallback(async (movie: MovieItem) => {
     if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
-    const cdnUrl = await fetchCdnLink(movie.torrent_id, movie.file_id, movie.account_id);
-    if (!cdnUrl) return;
 
     try {
-      const daemonRes = await fetch("http://localhost:9070/syncplay", {
+      const res = await fetch("/api/play", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
+        body: JSON.stringify({ action: "syncplay", player: playerProtocol, torrent_id: movie.torrent_id, file_id: movie.file_id, account_id: movie.account_id }),
       });
 
-      if (daemonRes.ok) {
-        const resData = await daemonRes.json();
+      const data = await res.json();
+      if (res.ok && data.ok) {
         toast.success(`Syncplay launched via ${playerProtocol.toUpperCase()}`, {
-          description: `Joined room: ${resData.room || "unknown"}`,
+          description: `Joined room: ${data.room || "unknown"}`,
         });
         return;
       }
-      throw new Error("Daemon returned error");
+      throw new Error(data.error || "Failed to launch syncplay");
     } catch (e: any) {
       toast.error("Syncplay launch failed", {
-        description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
+        description: e.message || "Ensure syncplay.conf is configured.",
       });
     }
   }, [playerProtocol]);
@@ -271,7 +269,7 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
                     <DropdownMenuTrigger asChild>
                       <Button
                         size="icon"
-                        className="h-8 w-8 rounded-full bg-transparent hover:bg-transparent text-white cursor-pointer"
+                        className="h-8 w-8 rounded-full bg-transparent hover:bg-transparent text-white cursor-pointer focus:outline-none focus:ring-0 "
                       >
                         <MoreVertical size={15} />
                       </Button>

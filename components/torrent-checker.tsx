@@ -24,6 +24,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
 import { useFileStore } from "@/lib/store";
 import { toast } from "sonner";
 import { formatBytes, cn } from "@/lib/utils";
@@ -426,25 +434,39 @@ export function TorrentChecker({ hasAccounts, accounts = [] }: TorrentCheckerPro
                   {cachedCount} of {totalCount} torrent{totalCount > 1 ? "s" : ""} cached
                 </span>
                 {accounts && accounts.length > 1 && (
-                  <div className="relative">
-                    <select
-                      multiple
-                      size={1}
-                      value={selectedAccountIds.map(String)}
-                      onChange={(e) => {
-                        const values = Array.from(e.target.selectedOptions, option => Number(option.value));
-                        setSelectedAccountIds(values);
-                      }}
-                      className="text-xs p-1 pr-6 rounded bg-background border border-border cursor-pointer focus:outline-none appearance-none"
-                    >
-                      {accounts.map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.torbox_email}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md bg-background border border-border hover:bg-muted/50 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-primary/40">
+                        <span className="font-medium text-foreground/80">{selectedAccountIds.length} Account{selectedAccountIds.length !== 1 ? 's' : ''}</span>
+                        <ChevronDown size={14} className="opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 rounded-xl border-border/50">
+                      <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Select Accounts</DropdownMenuLabel>
+                      <DropdownMenuSeparator className="bg-border/50" />
+                      <div className="max-h-48 overflow-y-auto">
+                        {accounts.map((acc) => {
+                          const isSelected = selectedAccountIds.includes(acc.id);
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={acc.id}
+                              checked={isSelected}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedAccountIds((prev) => [...prev, acc.id]);
+                                } else {
+                                  setSelectedAccountIds((prev) => prev.filter((id) => id !== acc.id));
+                                }
+                              }}
+                              className="text-xs cursor-pointer rounded-lg mb-0.5 last:mb-0"
+                            >
+                              <span className="truncate">{acc.torbox_email}</span>
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
 

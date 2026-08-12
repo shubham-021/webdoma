@@ -67,7 +67,7 @@ export function Sidebar({ username = "User" }: SidebarProps) {
   // Prevent layout shift during SSR
   if (!isMounted) {
     return (
-      <aside className="w-16 lg:w-56 h-full flex flex-col glass-panel shrink-0 z-20 relative border-r border-dashed border-black/25 dark:border-white/25">
+      <aside className="w-16 lg:w-56 h-full flex flex-col glass-panel shrink-0 z-20 relative border-r border-dashed border-black dark:border-white/25">
         <div className="p-3 lg:p-4 flex items-center justify-center lg:justify-start gap-3">
           <div className="w-9 h-9 rounded-lg bg-linear-to-br from-primary/80 to-primary/40 flex items-center justify-center shrink-0 shadow-inner">
             <span className="text-lg font-bold font-display text-primary-foreground uppercase">

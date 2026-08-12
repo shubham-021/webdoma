@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { verifyUserAccountAccess } from "@/lib/db";
 import { getValidAccessToken, requestCdnLink } from "@/lib/torbox";
-import { mintPlayToken } from "@/lib/crypto";
 
 const cdnLinkSchema = z.object({
   torrent_id: z.number().int().nonnegative(),
@@ -63,16 +62,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Mint a short-lived HMAC token so the local daemon can report playback
-    // progress back to /api/progress (runs after ownership was verified above).
-    const playToken = mintPlayToken({
-      userId: session.userId,
-      accountId: account_id,
-      torrentId: torrent_id,
-      fileId: file_id,
-    });
-
-    return NextResponse.json({ success: true, url: cdnUrl, playToken });
+    return NextResponse.json({ success: true, url: cdnUrl });
   } catch (error) {
     console.error("CDN link error:", error);
     return NextResponse.json(

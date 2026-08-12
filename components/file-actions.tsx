@@ -1,8 +1,14 @@
 "use client";
 
-import { Copy, Play, Download, Loader2, Users } from "lucide-react";
+import { Copy, Play, Download, Loader2, Users, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useState, useCallback } from "react";
 import { LOCAL_DAEMON_PLAYERS } from "@/lib/constants";
@@ -15,6 +21,7 @@ interface FileActionsProps {
   isMedia: boolean;
   playerProtocol: string;
   accountId: number;
+  variant?: "default" | "dropdown";
 }
 
 export function FileActions({
@@ -24,6 +31,7 @@ export function FileActions({
   isMedia,
   playerProtocol,
   accountId,
+  variant = "default",
 }: FileActionsProps) {
   const [isCopying, setIsCopying] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -77,36 +85,28 @@ export function FileActions({
     }
     setIsSyncplaying(true);
     try {
-      const cdnUrl = await getCdnLink();
-      if (!cdnUrl) return;
+      const res = await fetch("/api/play", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "syncplay", player: playerProtocol, torrent_id: torrentId, file_id: fileId, account_id: accountId }),
+      });
 
-      try {
-        const daemonRes = await fetch("http://localhost:9070/syncplay", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        toast.success(`Syncplay launched via ${playerProtocol.toUpperCase()}`, {
+          description: `Joined room: ${data.room || "unknown"}`,
         });
-
-        if (daemonRes.ok) {
-          const data = await daemonRes.json();
-          toast.success(`Syncplay launched via ${playerProtocol.toUpperCase()}`, {
-            description: `Joined room: ${data.room || "unknown"}`,
-          });
-          return;
-        }
-        const errData = await daemonRes.json().catch(() => ({}));
-        throw new Error((errData as { error?: string }).error || "Daemon returned error status");
-      } catch (e: any) {
-        toast.error("Syncplay launch failed", {
-          description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
-        });
+        return;
       }
-    } catch {
-      toast.error("Failed to start Syncplay");
+      throw new Error(data.error || "Failed to launch syncplay");
+    } catch (e: any) {
+      toast.error("Syncplay launch failed", {
+        description: e.message || "Ensure syncplay.conf is configured at the project root.",
+      });
     } finally {
       setIsSyncplaying(false);
     }
-  }, [getCdnLink, playerProtocol]);
+  }, [torrentId, fileId, accountId, playerProtocol]);
 
   const handleStream = useCallback(async () => {
     setIsStreaming(true);
@@ -124,96 +124,127 @@ export function FileActions({
     toast.success("Download started", { description: fileName });
   }, [getCdnLink, fileName]);
 
-  return (
-    <div className="flex items-center gap-1">
-      <Tooltip>
-        <TooltipTrigger asChild>
+  if (variant === "dropdown") {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <Button
-            variant="ghost"
             size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCopyLink();
-            }}
-            disabled={isCopying}
-            className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-            id={`copy-link-${fileName}`}
+            variant="ghost"
+            className="h-8 w-8 text-white focus:ring-0 focus:outline-none cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
           >
-            {isCopying ? (
-              <Loader2 className="animate-spin" size={16} />
-            ) : (
-              <Copy size={16} />
-            )}
+            <MoreVertical className="h-4 w-4" />
           </Button>
-        </TooltipTrigger>
-        <TooltipContent>Copy CDN link</TooltipContent>
-      </Tooltip>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 bg-card/95 backdrop-blur-xl border-border/50" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStream(); }} disabled={isStreaming} className="cursor-pointer gap-2">
+            {isStreaming ? <Loader2 className="animate-spin h-4 w-4" /> : <Play className="h-4 w-4" />}
+            <span>{isMedia ? "Stream" : "Open"}</span>
+          </DropdownMenuItem>
 
-      {isMedia && (
-        <>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStream();
-                }}
-                disabled={isStreaming}
-                className="h-8 w-8 hover:bg-violet-500/10 hover:text-violet-400"
-                id={`stream-${fileName}`}
-              >
-                {isStreaming ? (
-                  <Loader2 className="animate-spin" size={16} />
-                ) : (
-                  <Play size={16} />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Stream in player</TooltipContent>
-          </Tooltip>
-
-          {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSyncplay();
-                  }}
-                  disabled={isSyncplaying}
-                  className="h-8 w-8 hover:bg-amber-500/10 hover:text-amber-400"
-                  id={`syncplay-${fileName}`}
-                >
-                  {isSyncplaying ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    <Users size={16} />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Syncplay with friends</TooltipContent>
-            </Tooltip>
+          {isMedia && LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSyncplay(); }} disabled={isSyncplaying} className="cursor-pointer gap-2 text-amber-500 focus:text-amber-400">
+              {isSyncplaying ? <Loader2 className="animate-spin h-4 w-4" /> : <Users className="h-4 w-4" />}
+              <span>Syncplay</span>
+            </DropdownMenuItem>
           )}
-        </>
+
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCopyLink(); }} disabled={isCopying} className="cursor-pointer gap-2">
+            {isCopying ? <Loader2 className="animate-spin h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            <span>Copy Link</span>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownload(); }} className="cursor-pointer gap-2">
+            <Download className="h-4 w-4" />
+            <span>Download</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 sm:gap-1.5 w-full justify-between sm:justify-start overflow-hidden flex-nowrap">
+      <Button
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleStream();
+        }}
+        disabled={isStreaming}
+        className="flex-1 min-w-0 sm:flex-none h-7 sm:h-8 px-2 sm:px-3 text-[10px] sm:text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer"
+        id={`stream-${fileName}`}
+      >
+        {isStreaming ? (
+          <Loader2 className="animate-spin shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        ) : (
+          <Play className="fill-current shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        )}
+        <span className="truncate">{isMedia ? "Stream" : "Open"}</span>
+      </Button>
+
+      {isMedia && LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSyncplay();
+              }}
+              disabled={isSyncplaying}
+              className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+              id={`syncplay-${fileName}`}
+            >
+              {isSyncplaying ? (
+                <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              ) : (
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Syncplay with friends</TooltipContent>
+        </Tooltip>
       )}
 
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant="ghost"
             size="icon"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopyLink();
+            }}
+            disabled={isCopying}
+            className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+            id={`copy-link-${fileName}`}
+          >
+            {isCopying ? (
+              <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Copy Link</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon"
+            variant="outline"
             onClick={(e) => {
               e.stopPropagation();
               handleDownload();
             }}
-            className="h-8 w-8 hover:bg-emerald-500/10 hover:text-emerald-400"
+            className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
             id={`download-${fileName}`}
           >
-            <Download size={16} />
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Download file</TooltipContent>

@@ -47,8 +47,22 @@ function startNextServer() {
     }
 
 
-    // Spawn the server process using node (or bun if you package the bundle with Bun)
-    nextProcess = spawn('/Users/shubham007/.bun/bin/bun', [serverPath], {
+    // Try to auto-detect the path to bun
+    let binPath = 'node'; // fallback to node if bun is completely unavailable
+    try {
+        const { execSync } = require('child_process');
+        binPath = execSync('which bun', { env: process.env }).toString().trim();
+    } catch (e) {
+        // If not found in PATH (common in macOS GUI apps), check default location
+        const os = require('os');
+        const defaultBunPath = path.join(os.homedir(), '.bun', 'bin', 'bun');
+        if (fs.existsSync(defaultBunPath)) {
+            binPath = defaultBunPath;
+        }
+    }
+
+    // Spawn the server process
+    nextProcess = spawn(binPath, [serverPath], {
         env: {
             cwd: workingDir,
             ...process.env,

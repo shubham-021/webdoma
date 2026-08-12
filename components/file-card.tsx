@@ -80,7 +80,7 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
           {item.sizeFormatted}
         </span>
 
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-2">
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex w-48 sm:w-56 shrink-0 justify-end">
           <FileActions
             torrentId={item.torrent_id}
             fileId={item.file_id}
@@ -122,7 +122,7 @@ export function FileCard({ item, viewMode, playerProtocol, onNavigate }: FileCar
         </div>
 
         {/* Hover Actions */}
-        <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-20 bg-background/90 backdrop-blur-md border-t border-border/50 flex justify-center">
+        <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-20 bg-background/90 backdrop-blur-md border-t border-border/50 flex w-full">
           <FileActions
             torrentId={item.torrent_id}
             fileId={item.file_id}

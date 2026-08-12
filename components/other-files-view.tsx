@@ -4,7 +4,7 @@ import { FileText, Play, Download, Copy, FolderOpen, Users, MoreVertical } from 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { buildPlayerURL } from "@/lib/players";
+import { launchPlayback } from "@/lib/client-play";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -81,41 +81,11 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol }
   }, []);
 
   const handleStream = useCallback(async (file: OtherFile) => {
-    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
-    if (!cdnUrl) return;
-
-    if (LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) {
-      try {
-        const daemonRes = await fetch("http://localhost:9070/play", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
-        });
-
-        if (daemonRes.ok) {
-          toast.success(`Launched ${playerProtocol.toUpperCase()} via Local Daemon`, {
-            description: "CDN stream active."
-          });
-          return;
-        }
-        throw new Error("Daemon returned error status");
-      } catch {
-        toast.error("Local daemon connection failed", {
-          description: "Ensure Relay Aemond is running on port 9070 on your machine."
-        });
-        return;
-      }
-    }
-
-    const playerUrl = buildPlayerURL(playerProtocol, cdnUrl);
-    const link = document.createElement("a");
-    link.href = playerUrl;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Opening in ${playerProtocol.toUpperCase()}`, {
-      description: "CDN stream active."
+    await launchPlayback({
+      torrentId: file.torrent_id,
+      fileId: file.file_id,
+      accountId: file.account_id,
+      playerProtocol,
     });
   }, [playerProtocol]);
 
@@ -128,27 +98,25 @@ export function OtherFilesView({ files, isLoading, searchQuery, playerProtocol }
 
   const handleSyncplay = useCallback(async (file: OtherFile) => {
     if (!LOCAL_DAEMON_PLAYERS.includes(playerProtocol)) return;
-    const cdnUrl = await fetchCdnLink(file.torrent_id, file.file_id, file.account_id);
-    if (!cdnUrl) return;
 
     try {
-      const daemonRes = await fetch("http://localhost:9070/syncplay", {
+      const res = await fetch("/api/play", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player: playerProtocol, url: cdnUrl }),
+        body: JSON.stringify({ action: "syncplay", player: playerProtocol, torrent_id: file.torrent_id, file_id: file.file_id, account_id: file.account_id }),
       });
 
-      if (daemonRes.ok) {
-        const resData = await daemonRes.json();
+      const data = await res.json();
+      if (res.ok && data.ok) {
         toast.success(`Syncplay launched via ${playerProtocol.toUpperCase()}`, {
-          description: `Joined room: ${resData.room || "unknown"}`,
+          description: `Joined room: ${data.room || "unknown"}`,
         });
         return;
       }
-      throw new Error("Daemon returned error");
+      throw new Error(data.error || "Failed to launch syncplay");
     } catch (e: any) {
       toast.error("Syncplay launch failed", {
-        description: e.message || "Ensure Aemond is running and syncplay.conf is configured.",
+        description: e.message || "Ensure syncplay.conf is configured.",
       });
     }
   }, [playerProtocol]);

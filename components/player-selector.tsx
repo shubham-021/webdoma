@@ -25,29 +25,28 @@ export function PlayerSelector({
   const SERVER_LAUNCH_PLAYERS = ["mpv", "vlc", "iina"];
 
   const handleTest = async () => {
-    // For mpv/vlc/iina: use server-side launch
     if (SERVER_LAUNCH_PLAYERS.includes(value)) {
       toast.info("Launching player...", {
         description: "The player will open in test mode to verify it works.",
       });
 
       try {
-        const res = await fetch("http://localhost:9070/play", {
+        const res = await fetch("/api/play", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: value, url: "https://test-url.relay.local/test.mp4" }),
+          body: JSON.stringify({ action: "test", player: value }),
         });
 
         if (res.ok) {
-          toast.success(`${value.toUpperCase()} launched via local daemon!`);
+          toast.success(`${value.toUpperCase()} launched successfully!`);
         } else {
           toast.error(`Failed to launch ${value}`, {
-            description: "Aemond returned an error status.",
+            description: "Backend returned an error status.",
           });
         }
       } catch {
         toast.error("Network error", {
-          description: "Ensure Relay Aemond is running on port 9070 on your machine.",
+          description: "Ensure the backend server is running.",
         });
       }
       return;
