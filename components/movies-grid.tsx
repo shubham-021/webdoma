@@ -1,15 +1,39 @@
 "use client";
 
-import { Film, Play, Download, Copy, Users } from "lucide-react";
+import { Film, Play, Download, Copy, Users, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LOCAL_DAEMON_PLAYERS } from "@/lib/constants";
 import { launchPlayback } from "@/lib/client-play";
 import { WatchedProgressBar } from "@/components/watched-progress-bar";
 import { useFileStore } from "@/lib/store";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+function useCompactActions() {
+  const { sidebarCollapsed } = useFileStore();
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      if (sidebarCollapsed) {
+        setCompact(window.innerWidth < 1210);
+      } else {
+        setCompact(window.innerWidth < 1400);
+      }
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [sidebarCollapsed]);
+  return compact;
+}
 
 interface MovieItem {
   id: number;
@@ -53,6 +77,7 @@ async function fetchCdnLink(torrentId: number, fileId: number, accountId: number
 
 export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: MoviesGridProps) {
   const { viewMode } = useFileStore();
+  const compactActions = useCompactActions();
 
   const filtered = movies.filter((m) =>
     (m.title || m.filename).toLowerCase().includes(searchQuery.toLowerCase())
@@ -167,142 +192,180 @@ export function MoviesGrid({ movies, isLoading, searchQuery, playerProtocol }: M
 
             {/* Actions */}
             <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity sm:mt-0 pb-1 sm:pb-0">
-                <Button
-                  size="sm"
-                  onClick={() => handleStream(movie)}
-                  className="h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer"
-                >
-                  <Play size={13} className="fill-current" />
-                  Stream
-                </Button>
-                {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => handleSyncplay(movie)}
-                    className="h-8 w-8 shrink-0 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
-                    title="Syncplay with friends"
-                  >
-                    <Users size={13} />
-                  </Button>
-                )}
+              <Button
+                size="sm"
+                onClick={() => handleStream(movie)}
+                className="h-8 text-xs font-semibold gap-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer"
+              >
+                <Play size={13} className="fill-current" />
+                Stream
+              </Button>
+              {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
                 <Button
                   size="icon"
                   variant="outline"
-                  onClick={() => handleCopyLink(movie)}
-                  className="h-8 w-8 shrink-0 text-xs cursor-pointer"
-                  title="Copy CDN Link"
+                  onClick={() => handleSyncplay(movie)}
+                  className="h-8 w-8 shrink-0 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                  title="Syncplay with friends"
                 >
-                  <Copy size={13} />
+                  <Users size={13} />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => handleDownload(movie)}
-                  className="h-8 w-8 shrink-0 text-xs cursor-pointer"
-                  title="Download File"
-                >
-                  <Download size={13} />
-                </Button>
+              )}
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => handleCopyLink(movie)}
+                className="h-8 w-8 shrink-0 text-xs cursor-pointer"
+                title="Copy CDN Link"
+              >
+                <Copy size={13} />
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => handleDownload(movie)}
+                className="h-8 w-8 shrink-0 text-xs cursor-pointer"
+                title="Download File"
+              >
+                <Download size={13} />
+              </Button>
             </div>
-            
+
             <WatchedProgressBar
               percent={movie.percent ?? null}
               completed={movie.completed}
             />
           </div>
         ) : (
-        <Card
-          key={movie.id}
-          className="group relative overflow-hidden rounded-xl border-0 bg-black/40 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/20"
-        >
-          {/* Full poster card — no separate info section */}
-          <div className="relative aspect-2/3 w-full overflow-hidden bg-muted/40">
-            {movie.poster_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={movie.poster_url}
-                alt={movie.title}
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                loading="lazy"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-muted/50 to-muted/20 text-muted-foreground">
-                <Film size={48} className="opacity-40" />
-              </div>
-            )}
-
-            {/* Always-visible bottom gradient overlay with title */}
-            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black via-black/80 to-transparent pt-24 pb-3.5 px-3.5 transition-opacity duration-300 group-hover:opacity-0 pointer-events-none">
-              <h3 className="text-lg font-display font-bold text-white leading-snug line-clamp-2 drop-shadow-lg tracking-wide">
-                {movie.title}
-              </h3>
-            </div>
-
-            {/* Hover overlay: metadata + action buttons */}
-            <div className="absolute inset-0 bg-linear-to-t from-black via-black/85 to-black/60 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-4 gap-3">
-              {/* Overview + metadata */}
-              <div className="space-y-1.5">
-                {movie.overview && (
-                  <p className="text-[12px] text-zinc-300 line-clamp-4 font-normal leading-relaxed">
-                    {movie.overview}
-                  </p>
-                )}
-                <div className="flex items-center gap-2 text-[11px] text-zinc-400 font-medium">
-                  {movie.year && <span>{movie.year}</span>}
-                  {movie.year && <span className="text-zinc-600">•</span>}
-                  <span>{movie.sizeFormatted}</span>
+          <Card
+            key={movie.id}
+            className="group relative overflow-hidden rounded-xl border-0 bg-black/40 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/20"
+          >
+            {/* Full poster card — no separate info section */}
+            <div className="relative aspect-2/3 w-full overflow-hidden bg-muted/40">
+              {movie.poster_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={movie.poster_url}
+                  alt={movie.title}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-muted/50 to-muted/20 text-muted-foreground">
+                  <Film size={48} className="opacity-40" />
                 </div>
+              )}
+
+              {/* Always-visible bottom gradient overlay with title */}
+              <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black via-black/80 to-transparent pt-24 pb-3.5 px-3.5 transition-opacity duration-300 group-hover:opacity-0 pointer-events-none">
+                <h3 className="text-lg font-display font-bold text-white leading-snug line-clamp-2 drop-shadow-lg tracking-wide">
+                  {movie.title}
+                </h3>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center gap-2 w-full">
-                <Button
-                  size="sm"
-                  onClick={() => handleStream(movie)}
-                  className="h-10 w-10 shrink-0 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-                >
-                  <Play size={15} className="fill-current" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={() => handleCopyLink(movie)}
-                  className="h-10 w-10 shrink-0 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-                  title="Copy CDN Link"
-                >
-                  <Copy size={15} />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={() => handleDownload(movie)}
-                  className="h-10 w-10 shrink-0 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-                  title="Download File"
-                >
-                  <Download size={15} />
-                </Button>
-                {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    onClick={() => handleSyncplay(movie)}
-                    className="h-10 w-10 shrink-0 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 cursor-pointer"
-                    title="Syncplay with friends"
-                  >
-                    <Users size={15} />
-                  </Button>
+              {/* Compact: always-visible three-dots at top-right */}
+              {compactActions && (
+                <div className="absolute top-2 right-2 z-30">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-transparent hover:bg-transparent text-white cursor-pointer ring-0 focus:outline-none"
+                      >
+                        <MoreVertical size={15} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={6} className="min-w-42.5 bg-popover/95 backdrop-blur-xl border-border/60 shadow-2xl rounded-xl p-1.5">
+                      <DropdownMenuItem onClick={() => handleStream(movie)} className="gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium hover:bg-violet-500/10 focus:bg-violet-500/10">
+                        <Play size={14} className="text-violet-400 fill-violet-400" />
+                        Stream
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCopyLink(movie)} className="gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium hover:bg-primary/10 focus:bg-primary/10">
+                        <Copy size={14} className="text-muted-foreground" />
+                        Copy link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownload(movie)} className="gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium hover:bg-emerald-500/10 focus:bg-emerald-500/10">
+                        <Download size={14} className="text-emerald-400" />
+                        Download
+                      </DropdownMenuItem>
+                      {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+                        <DropdownMenuItem onClick={() => handleSyncplay(movie)} className="gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium hover:bg-amber-500/10 focus:bg-amber-500/10">
+                          <Users size={14} className="text-amber-400" />
+                          Syncplay
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+
+              {/* Hover overlay: metadata + action buttons */}
+              <div className="absolute inset-0 bg-linear-to-t from-black via-black/85 to-black/60 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-2.5 sm:p-4 gap-2 sm:gap-3">
+                {/* Overview + metadata */}
+                <div className="space-y-1.5">
+                  {movie.overview && (
+                    <p className="text-[12px] text-zinc-300 line-clamp-4 font-normal leading-relaxed">
+                      {movie.overview}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 text-[11px] text-zinc-400 font-medium">
+                    {movie.year && <span>{movie.year}</span>}
+                    {movie.year && <span className="text-zinc-600">•</span>}
+                    <span>{movie.sizeFormatted}</span>
+                  </div>
+                </div>
+
+                {/* Inline action buttons — only when NOT compact */}
+                {!compactActions && (
+                  <div className="flex items-center gap-2 w-full">
+                    <Button
+                      size="sm"
+                      onClick={() => handleStream(movie)}
+                      className="h-10 w-10 shrink-0 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                    >
+                      <Play size={15} className="fill-current" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={() => handleCopyLink(movie)}
+                      className="h-10 w-10 shrink-0 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                      title="Copy CDN Link"
+                    >
+                      <Copy size={15} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={() => handleDownload(movie)}
+                      className="h-10 w-10 shrink-0 bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                      title="Download File"
+                    >
+                      <Download size={15} />
+                    </Button>
+                    {LOCAL_DAEMON_PLAYERS.includes(playerProtocol) && (
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        onClick={() => handleSyncplay(movie)}
+                        className="h-10 w-10 shrink-0 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 cursor-pointer"
+                        title="Syncplay with friends"
+                      >
+                        <Users size={15} />
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Resume progress bar at the bottom of the card */}
-            <WatchedProgressBar
-              percent={movie.percent ?? null}
-              completed={movie.completed}
-            />
-          </div>
-        </Card>
+              {/* Resume progress bar at the bottom of the card */}
+              <WatchedProgressBar
+                percent={movie.percent ?? null}
+                completed={movie.completed}
+              />
+            </div>
+          </Card>
         )
       ))}
     </div>

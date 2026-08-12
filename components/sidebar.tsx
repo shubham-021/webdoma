@@ -19,9 +19,9 @@ interface SidebarProps {
 export function Sidebar({ username = "User" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { viewMode, setViewMode } = useFileStore();
+  const { viewMode, setViewMode, setSidebarCollapsed } = useFileStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsedLocal] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [fetchedUsername, setFetchedUsername] = useState<string>("User");
 
@@ -90,7 +90,11 @@ export function Sidebar({ username = "User" }: SidebarProps) {
             variant="ghost"
             size="icon"
             className="absolute -right-3 top-6 h-6 w-6 rounded-full shadow-sm bg-background hover:bg-accent z-10 flex items-center justify-center"
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={() => {
+              const next = !isCollapsed;
+              setIsCollapsedLocal(next);
+              setSidebarCollapsed(next);
+            }}
           >
             <TextAlignJustify className="size-4" />
           </Button>

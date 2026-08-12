@@ -120,7 +120,7 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
       {/* Top Navigation Control Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-background/40 backdrop-blur-md shrink-0 z-10 relative">
         {/* Library Category Tabs */}
-        <div className="flex items-center gap-1.5 bg-muted p-1 rounded-xl shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]">
+        <div className="flex items-center gap-1 sm:gap-1.5 bg-muted p-1 rounded-xl shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)] min-w-0 shrink">
           <Button
             variant={activeTab === "movies" ? "default" : "ghost"}
             size="sm"
@@ -128,10 +128,10 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
               setActiveTab("movies");
               setSelectedShowTitle(null);
             }}
-            className="gap-2 rounded-lg text-xs font-semibold cursor-pointer"
+            className="gap-1.5 sm:gap-2 rounded-lg text-[11px] sm:text-xs font-semibold cursor-pointer px-2.5 sm:px-3 min-w-0 shrink-0"
           >
-            <Film size={15} />
-            <span>Movies</span>
+            <Film size={14} className="shrink-0" />
+            <span className="truncate">Movies</span>
           </Button>
 
           <Button
@@ -141,10 +141,10 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
               setActiveTab("tv");
               setSelectedShowTitle(null);
             }}
-            className="gap-2 rounded-lg text-xs font-semibold cursor-pointer"
+            className="gap-1.5 sm:gap-2 rounded-lg text-[11px] sm:text-xs font-semibold cursor-pointer px-2.5 sm:px-3 min-w-0 shrink-0"
           >
-            <Tv size={15} />
-            <span>TV Shows</span>
+            <Tv size={14} className="shrink-0" />
+            <span className="truncate">TV Shows</span>
           </Button>
 
           <Button
@@ -154,10 +154,11 @@ export function FileBrowser({ playerProtocol, hasAccounts }: FileBrowserProps) {
               setActiveTab("other");
               setSelectedShowTitle(null);
             }}
-            className="gap-2 rounded-lg text-xs font-semibold cursor-pointer"
+            className="gap-1.5 sm:gap-2 rounded-lg text-[11px] sm:text-xs font-semibold cursor-pointer px-2.5 sm:px-3 min-w-0 shrink-0"
           >
-            <FolderOpen size={15} />
-            <span>Other Files</span>
+            <FolderOpen size={14} className="shrink-0" />
+            <span className="hidden [@media(min-width:400px)]:inline truncate">Other Files</span>
+            <span className="[@media(min-width:400px)]:hidden truncate">Other</span>
           </Button>
         </div>
 
