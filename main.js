@@ -4,7 +4,7 @@ const path = require('path');
 const http = require('http');
 const fs = require('fs');
 
-// Menu.setApplicationMenu(null); // Removed to allow standard shortcuts (Cmd+C/V) on macOS
+Menu.setApplicationMenu(null); // Removed to allow standard shortcuts (Cmd+C/V) on macOS
 
 app.name = 'Relay';
 let nextProcess = null;
@@ -13,129 +13,129 @@ const PORT = 9069; // Choose a port that is unlikely to conflict
 
 // 1. Function to check when the Next.js server is ready
 function checkServerReady(callback) {
-    const req = http.request({ host: 'localhost', port: PORT, method: 'GET', path: '/' }, (res) => {
-        console.log('>>> server check status:', res.statusCode);
-        if (res.statusCode < 500) {
-            // Any non-server-error response (200, redirects, even 404) means
-            // the HTTP server itself is up and listening.
-            callback();
-        } else {
-            setTimeout(() => checkServerReady(callback), 200);
-        }
-        res.resume(); // drain the response so the socket can close cleanly
-    });
-    req.on('error', (err) => {
-        console.log('>>> server check error:', err.message);
-        setTimeout(() => checkServerReady(callback), 200);
-    });
-    req.end();
+  const req = http.request({ host: 'localhost', port: PORT, method: 'GET', path: '/' }, (res) => {
+    console.log('>>> server check status:', res.statusCode);
+    if (res.statusCode < 500) {
+      // Any non-server-error response (200, redirects, even 404) means
+      // the HTTP server itself is up and listening.
+      callback();
+    } else {
+      setTimeout(() => checkServerReady(callback), 200);
+    }
+    res.resume(); // drain the response so the socket can close cleanly
+  });
+  req.on('error', (err) => {
+    console.log('>>> server check error:', err.message);
+    setTimeout(() => checkServerReady(callback), 200);
+  });
+  req.end();
 }
 
 // 2. Start the Standalone Next.js Server
 function startNextServer() {
-    const isProd = app.isPackaged;
+  const isProd = app.isPackaged;
 
-    // Resolve path to the Next.js standalone server.js file
-    const serverPath = path.join(app.getAppPath(), '.next', 'standalone', 'server.js');
+  // Resolve path to the Next.js standalone server.js file
+  const serverPath = path.join(app.getAppPath(), '.next', 'standalone', 'server.js');
 
-    // Resolve the working directory where database/data folder should live
-    const workingDir = isProd ? app.getPath('userData') : app.getAppPath();
+  // Resolve the working directory where database/data folder should live
+  const workingDir = isProd ? app.getPath('userData') : app.getAppPath();
 
-    // Create the directory if it doesn't exist
-    if (isProd && !fs.existsSync(workingDir)) {
-        fs.mkdirSync(workingDir, { recursive: true });
+  // Create the directory if it doesn't exist
+  if (isProd && !fs.existsSync(workingDir)) {
+    fs.mkdirSync(workingDir, { recursive: true });
+  }
+
+
+  // Try to auto-detect the path to bun
+  let binPath = 'node'; // fallback to node if bun is completely unavailable
+  try {
+    const { execSync } = require('child_process');
+    binPath = execSync('which bun', { env: process.env }).toString().trim();
+  } catch (e) {
+    // If not found in PATH (common in macOS GUI apps), check default location
+    const os = require('os');
+    const defaultBunPath = path.join(os.homedir(), '.bun', 'bin', 'bun');
+    if (fs.existsSync(defaultBunPath)) {
+      binPath = defaultBunPath;
     }
+  }
 
-
-    // Try to auto-detect the path to bun
-    let binPath = 'node'; // fallback to node if bun is completely unavailable
-    try {
-        const { execSync } = require('child_process');
-        binPath = execSync('which bun', { env: process.env }).toString().trim();
-    } catch (e) {
-        // If not found in PATH (common in macOS GUI apps), check default location
-        const os = require('os');
-        const defaultBunPath = path.join(os.homedir(), '.bun', 'bin', 'bun');
-        if (fs.existsSync(defaultBunPath)) {
-            binPath = defaultBunPath;
-        }
-    }
-
-    // Spawn the server process
-    nextProcess = spawn(binPath, [serverPath], {
-        env: {
-            cwd: workingDir,
-            ...process.env,
-            PORT: PORT.toString(),
-            HOSTNAME: 'localhost',
-            NODE_ENV: isProd ? 'production' : 'development',
-            IS_PACKAGED: isProd ? 'true' : 'false'
-        },
-        stdio: 'inherit' // Pipe server logs to terminal
-    });
+  // Spawn the server process
+  nextProcess = spawn(binPath, [serverPath], {
+    env: {
+      cwd: workingDir,
+      ...process.env,
+      PORT: PORT.toString(),
+      HOSTNAME: 'localhost',
+      NODE_ENV: isProd ? 'production' : 'development',
+      IS_PACKAGED: isProd ? 'true' : 'false'
+    },
+    stdio: 'inherit' // Pipe server logs to terminal
+  });
 }
 
 function createWindow() {
-    if (mainWindow) return;
+  if (mainWindow) return;
 
-    mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 800,
-        icon: path.join(__dirname, 'app', 'icon.png'),
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-        },
-        show: false, // Hide initially until ready-to-show
-    });
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    icon: path.join(__dirname, 'app', 'icon.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    show: false, // Hide initially until ready-to-show
+  });
 
-    // Load the running Next.js application
-    mainWindow.loadURL(`http://localhost:${PORT}`);
+  // Load the running Next.js application
+  mainWindow.loadURL(`http://localhost:${PORT}`);
 
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.show();
-        // Force the app to foreground on macOS after the asynchronous server wait
-        if (process.platform === 'darwin') {
-            app.focus({ steal: true });
-        }
-    });
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    // Force the app to foreground on macOS after the asynchronous server wait
+    if (process.platform === 'darwin') {
+      app.focus({ steal: true });
+    }
+  });
 
-    mainWindow.on('closed', () => {
-        mainWindow = null;
-    });
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
 app.whenReady().then(() => {
-    startNextServer();
+  startNextServer();
 
-    if (process.platform === 'darwin') {
-        const { nativeImage } = require('electron');
-        const iconPath = path.join(__dirname, 'app', 'icon.png');
-        app.dock.setIcon(nativeImage.createFromPath(iconPath));
-    }
+  if (process.platform === 'darwin') {
+    const { nativeImage } = require('electron');
+    const iconPath = path.join(__dirname, 'app', 'icon.png');
+    app.dock.setIcon(nativeImage.createFromPath(iconPath));
+  }
 
-    // Wait for the Next.js server to reply, then open the window
-    checkServerReady(() => {
-        createWindow();
-    });
+  // Wait for the Next.js server to reply, then open the window
+  checkServerReady(() => {
+    createWindow();
+  });
 
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    });
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
 });
 
 // Clean up: terminate Next.js background process when app closes
 app.on('window-all-closed', () => {
-    if (nextProcess) {
-        nextProcess.kill();
-    }
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
+  if (nextProcess) {
+    nextProcess.kill();
+  }
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });
 
 app.on('will-quit', () => {
-    if (nextProcess) {
-        nextProcess.kill();
-    }
+  if (nextProcess) {
+    nextProcess.kill();
+  }
 });
